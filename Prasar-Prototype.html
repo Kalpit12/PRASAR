@@ -845,23 +845,15 @@ let actorName='System';
 const AUTH_KEY='prasar_auth_v1';
 const LOGIN_REMEMBER_KEY='prasar_login_remember_v1';
 let apiKey=sessionStorage.getItem('prasarApiKey')||'';
-function ensureApiKey(){
-  if(apiKey)return true;
-  const v=window.prompt('Enter PRASAR API key:');
-  if(!v)return false;
-  apiKey=String(v).trim();
-  sessionStorage.setItem('prasarApiKey',apiKey);
-  return !!apiKey;
-}
 async function apiRequest(url,options={}){
-  if(!ensureApiKey())throw new Error('API key is required.');
-  const headers=Object.assign({'Content-Type':'application/json','x-prasar-api-key':apiKey},options.headers||{});
+  const headers=Object.assign({'Content-Type':'application/json'},options.headers||{});
+  if(apiKey)headers['x-prasar-api-key']=apiKey;
   const res=await fetch(url,Object.assign({},options,{headers}));
   const data=await res.json().catch(()=>({}));
   if(res.status===401){
     apiKey='';
     sessionStorage.removeItem('prasarApiKey');
-    throw new Error('Unauthorized. Re-enter API key.');
+    throw new Error('Unauthorized request.');
   }
   if(!res.ok)throw new Error(data.error||'Request failed');
   return data;

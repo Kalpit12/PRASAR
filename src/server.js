@@ -53,9 +53,24 @@ function requireApiKey(req, res, next) {
   if (!API_KEY) {
     return res.status(503).json({ error: "Server misconfigured: API key not set." });
   }
+  const origin = req.header("origin") || "";
+  const referer = req.header("referer") || "";
+  const secFetchSite = (req.header("sec-fetch-site") || "").toLowerCase();
+  const trustedOriginFromReferer = (() => {
+    try {
+      return new URL(referer).origin;
+    } catch {
+      return "";
+    }
+  })();
+  const trustedOrigin =
+    (origin && allowedOrigins.has(origin)) ||
+    (trustedOriginFromReferer && allowedOrigins.has(trustedOriginFromReferer)) ||
+    (!origin && (secFetchSite === "same-origin" || secFetchSite === "same-site"));
+
   const key = req.header("x-prasar-api-key");
-  if (!key || key !== API_KEY) return res.status(401).json({ error: "Unauthorized." });
-  return next();
+  if (key === API_KEY || trustedOrigin) return next();
+  return res.status(401).json({ error: "Unauthorized." });
 }
 
 app.use(
