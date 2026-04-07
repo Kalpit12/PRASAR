@@ -223,6 +223,22 @@ app.post("/api/dignitaries", async (req, res) => {
   }
 });
 
+app.delete("/api/dignitaries/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return badRequest(res, "Invalid dignitary id.");
+  try {
+    const inUse = await db.query("SELECT 1 FROM invitations WHERE dignitary_id = $1 LIMIT 1", [id]);
+    if (inUse.rows[0]) {
+      return res.status(409).json({ error: "Cannot delete dignitary with invitations. Delete related invitations first." });
+    }
+    const result = await db.query("DELETE FROM dignitaries WHERE id = $1 RETURNING id", [id]);
+    if (!result.rows[0]) return res.status(404).json({ error: "Dignitary not found." });
+    return res.json({ ok: true, deletedId: id });
+  } catch {
+    return res.status(500).json({ error: "Failed to delete dignitary." });
+  }
+});
+
 // Events
 app.get("/api/events", async (_req, res) => {
   try {

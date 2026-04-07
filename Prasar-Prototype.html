@@ -844,6 +844,117 @@ let role='admin';
 let actorName='System';
 const AUTH_KEY='prasar_auth_v1';
 const LOGIN_REMEMBER_KEY='prasar_login_remember_v1';
+let apiKey=sessionStorage.getItem('prasarApiKey')||'';
+function ensureApiKey(){
+  if(apiKey)return true;
+  const v=window.prompt('Enter PRASAR API key:');
+  if(!v)return false;
+  apiKey=String(v).trim();
+  sessionStorage.setItem('prasarApiKey',apiKey);
+  return !!apiKey;
+}
+async function apiRequest(url,options={}){
+  if(!ensureApiKey())throw new Error('API key is required.');
+  const headers=Object.assign({'Content-Type':'application/json','x-prasar-api-key':apiKey},options.headers||{});
+  const res=await fetch(url,Object.assign({},options,{headers}));
+  const data=await res.json().catch(()=>({}));
+  if(res.status===401){
+    apiKey='';
+    sessionStorage.removeItem('prasarApiKey');
+    throw new Error('Unauthorized. Re-enter API key.');
+  }
+  if(!res.ok)throw new Error(data.error||'Request failed');
+  return data;
+}
+function splitName(fullName){
+  const parts=String(fullName||'').trim().split(/\s+/).filter(Boolean);
+  return {fn:parts[0]||'',ln:parts.slice(1).join(' ')||''};
+}
+function mapUserFromApi(u){
+  return {
+    id:Number(u.id),
+    dbId:Number(u.id),
+    name:u.full_name||'',
+    email:u.email||'',
+    role:u.role==='KARYAKAR'?'Karyakar':'Admin',
+    status:u.status==='INACTIVE'?'Inactive':'Active',
+    phone:'',
+    area:''
+  };
+}
+function mapDigFromApi(d){
+  const n=splitName(d.full_name);
+  return {
+    id:Number(d.id),
+    dbId:Number(d.id),
+    pre:'',
+    fn:n.fn,
+    ln:n.ln,
+    pn:'',
+    des:d.designation||'',
+    org:d.organization||'',
+    cat:'Government',
+    k:'Unassigned',
+    lc:'—',
+    st:'Active',
+    email:d.email||'',
+    wa:''
+  };
+}
+function mapEventFromApi(e){
+  return {
+    id:Number(e.id),
+    dbId:Number(e.id),
+    name:e.title||'',
+    date:e.event_date||'',
+    time:'',
+    venue:e.venue||'',
+    desc:'',
+    createdBy:'Admin User'
+  };
+}
+function commTypeToUi(t){
+  const v=String(t||'').toUpperCase();
+  if(v==='PHONE_CALL')return '📞 Phone Call';
+  if(v==='WHATSAPP')return '💬 WhatsApp';
+  if(v==='EMAIL')return '📧 Email';
+  if(v==='VISIT')return '🏛️ Visit';
+  if(v==='PDF_SENT')return '📄 PDF Sent';
+  if(v==='GIFT')return '🎁 Gift';
+  return '📧 Email';
+}
+function commTypeToApi(t){
+  const v=String(t||'').toLowerCase();
+  if(v.includes('phone'))return 'PHONE_CALL';
+  if(v.includes('whatsapp'))return 'WHATSAPP';
+  if(v.includes('visit'))return 'VISIT';
+  if(v.includes('pdf'))return 'PDF_SENT';
+  if(v.includes('gift'))return 'GIFT';
+  return 'EMAIL';
+}
+function mapCommFromApi(c){
+  return {
+    id:Number(c.id),
+    who:c.dignitary_name||'Unknown',
+    type:commTypeToUi(c.type),
+    note:c.notes||'',
+    when:c.happened_at?new Date(c.happened_at).toLocaleString():'—',
+    by:c.user_name||'System'
+  };
+}
+async function syncBackendData(){
+  const [users,digs,events,comms]=await Promise.all([
+    apiRequest('/api/users'),
+    apiRequest('/api/dignitaries'),
+    apiRequest('/api/events'),
+    apiRequest('/api/communications')
+  ]);
+  USERS.splice(0,USERS.length,...users.map(mapUserFromApi));
+  DIG.splice(0,DIG.length,...digs.map(mapDigFromApi));
+  EVTS.splice(0,EVTS.length,...events.map(mapEventFromApi));
+  COMMS.splice(0,COMMS.length,...comms.map(mapCommFromApi));
+  dedupeDigs();
+}
 function readLoginRememberMap(){
   try{
     const raw=localStorage.getItem(LOGIN_REMEMBER_KEY);if(!raw)return {};
@@ -1341,7 +1452,7 @@ function renderComms(){
   updateDashboardAnalytics();
   updateReportsAnalytics();
 }
-function saveDig(){
+async function saveDig(){
   if(!validateModal('addDig'))return;
   const next={
     id:Date.now(),pre:'',fn:(document.getElementById('digFn').value||'').trim(),ln:(document.getElementById('digLn').value||'').trim(),pn:'',
@@ -1351,8 +1462,19 @@ function saveDig(){
     wa:(document.getElementById('digWa').value||'').trim()
   };
   if(DIG.some(d=>digKey(d)===digKey(next))){toast('Duplicate dignitary skipped');return;}
-  DIG.push(next);
-  persistData();renderDig();refreshInviteSelectors();closeM('addDig');toast('Dignitary added!','ts');
+  try{
+    await apiRequest('/api/dignitaries',{
+      method:'POST',
+      body:JSON.stringify({
+        fullName:`${next.fn} ${next.ln}`.trim(),
+        email:next.email,
+        designation:next.des,
+        organization:next.org
+      })
+    });
+    await syncBackendData();
+    renderDig();refreshInviteSelectors();closeM('addDig');toast('Dignitary added!','ts');
+  }catch(e){toast(e.message||'Failed to add dignitary');}
 }
 function importDigs(){
   if(role!=='admin'){toast('Admin access required');return;}
@@ -1426,12 +1548,22 @@ function importDigs(){
   };
   reader.readAsArrayBuffer(f);
 }
-function saveEvt(){
+async function saveEvt(){
   if(!validateModal('addEvt'))return;
   const time=buildTime12(document.getElementById('evtTime').value,document.getElementById('evtAmpm').value);
   if(!time){toast('Invalid time. Use hh:mm');return;}
-  EVTS.push({id:Date.now(),name:document.getElementById('evtName').value.trim(),date:document.getElementById('evtDate').value,time,venue:document.getElementById('evtVenue').value.trim(),desc:(document.getElementById('evtDesc').value||'').trim(),createdBy:actorName||'System'});
-  persistData();renderEvents();refreshInviteSelectors();closeM('addEvt');toast('Event created!','ts');
+  try{
+    await apiRequest('/api/events',{
+      method:'POST',
+      body:JSON.stringify({
+        title:document.getElementById('evtName').value.trim(),
+        eventDate:document.getElementById('evtDate').value,
+        venue:document.getElementById('evtVenue').value.trim()
+      })
+    });
+    await syncBackendData();
+    renderEvents();refreshInviteSelectors();closeM('addEvt');toast('Event created!','ts');
+  }catch(e){toast(e.message||'Failed to create event');}
 }
 let editEvtIdx=-1;
 function openEditEvt(i){
@@ -1460,12 +1592,29 @@ function saveEvtEdits(){
   e.desc=(document.getElementById('eeDesc').value||'').trim();
   persistData();renderEvents();refreshInviteSelectors();closeM('editEvt');toast('Event updated','ts');
 }
-function saveInt(){
+async function saveInt(){
   if(!validateModal('logInt'))return;
   const idx=Number(document.getElementById('intDig').value);
-  const who=DIG[idx]?`${DIG[idx].pre} ${DIG[idx].fn} ${DIG[idx].ln}`.trim():'Unknown';
-  COMMS.push({id:Date.now(),who,type:document.getElementById('intType').value,note:document.querySelector('#m-logInt textarea').value.trim(),when:new Date(document.querySelector('#m-logInt input[type=\"datetime-local\"]').value).toLocaleString(),by:actorName|| (role==='admin'?'Admin User':'Karyakar User')});
-  persistData();renderComms();closeM('logInt');toast('Interaction logged','ts');
+  const dig=DIG[idx];
+  if(!dig||!dig.dbId){toast('Select a valid dignitary');return;}
+  let user=USERS.find(u=>u.name===actorName)||USERS[0];
+  if(!user){
+    toast('Create at least one user first from User Mgmt.');return;
+  }
+  try{
+    await apiRequest('/api/communications',{
+      method:'POST',
+      body:JSON.stringify({
+        dignitaryId:dig.dbId,
+        userId:user.dbId,
+        type:commTypeToApi(document.getElementById('intType').value),
+        notes:document.querySelector('#m-logInt textarea').value.trim(),
+        happenedAt:new Date(document.querySelector('#m-logInt input[type=\"datetime-local\"]').value).toISOString()
+      })
+    });
+    await syncBackendData();
+    renderComms();closeM('logInt');toast('Interaction logged','ts');
+  }catch(e){toast(e.message||'Failed to log interaction');}
 }
 function saveDon(){if(!validateModal('addDon'))return;closeM('addDon');toast('Donation recorded','ts')}
 function renderUsers(){
@@ -1558,24 +1707,27 @@ function saveUserEdits(){
   closeM('editUser');
   toast('User updated','ts');
 }
-function saveKar(){
+async function saveKar(){
   if(!validateModal('addKar'))return;
   const name=`${document.getElementById('karFn').value.trim()} ${document.getElementById('karLn').value.trim()}`.trim();
   const email=document.getElementById('karEmail').value.trim().toLowerCase();
   if(USERS.some(u=>u.email===email)){toast('Email already exists');return;}
-  USERS.push({
-    name,
-    email,
-    phone:document.getElementById('karPhone').value.trim(),
-    role:document.getElementById('karRole').value,
-    status:document.getElementById('karStatus').value,
-    area:document.getElementById('karArea').value.trim()
-  });
-  persistUsers();
-  renderUsers();
-  refreshInviteSelectors();
-  closeM('addKar');
-  toast('Karyakar created!','ts');
+  try{
+    await apiRequest('/api/users',{
+      method:'POST',
+      body:JSON.stringify({
+        fullName:name,
+        email,
+        role:'KARYAKAR',
+        status:document.getElementById('karStatus').value==='Inactive'?'INACTIVE':'ACTIVE'
+      })
+    });
+    await syncBackendData();
+    renderUsers();
+    refreshInviteSelectors();
+    closeM('addKar');
+    toast('Karyakar created!','ts');
+  }catch(e){toast(e.message||'Failed to create karyakar');}
 }
 function saveGift(){if(!validateModal('logGift'))return;closeM('logGift');toast('Gift logged','ts')}
 function sendInviteEmail(){if(!validateModal('sendEmail'))return;closeM('sendEmail');toast('Email queued (prototype)','ts')}
@@ -1585,7 +1737,7 @@ function enhanceUI(){
     setTimeout(()=>el.classList.add('on'),Math.min(550,60*i));
   });
 }
-function doLogin(){
+async function doLogin(){
   if(!USERS.length)hydrateUsers();
   role=document.getElementById('loginRole').value;
   const u=(document.getElementById('loginUser').value||'').trim();
@@ -1607,8 +1759,15 @@ function doLogin(){
   saveAuthState({loggedIn:true,role,user:actorName},persist);
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appShell').classList.add('active');
-  hydrateUsers();
-  hydrateData();
+  try{
+    await syncBackendData();
+  }catch(e){
+    toast(`Backend sync failed: ${e.message||'unknown error'}`);
+    clearAuthState();
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('appShell').classList.remove('active');
+    return;
+  }
   applyRoleUI();
   enhanceUI();
   initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
@@ -1649,11 +1808,24 @@ function renderDig(list){
     <td style="font-size:.82rem">${x.des}</td><td style="font-size:.82rem">${x.org}</td>
     <td><span class="tag ${CT[x.cat]||''}">${x.cat}</span></td><td style="font-size:.82rem">${x.k}</td>
     <td style="font-size:.82rem">${x.lc}</td><td><span class="sd ${x.st==='Active'?'sd-a':'sd-i'}"></span>${x.st}</td>
-    <td><div class="bg nw"><button class="btn btn-sm btn-o" onclick="viewDig(${x.id})">👁</button>${u?`<a class="btn btn-sm btn-w" href="${u}" target="_blank" rel="noopener noreferrer" title="Open WhatsApp" aria-label="Open WhatsApp">${waSvg}</a>`:`<button class="btn btn-sm btn-w" onclick="toast('No WhatsApp number','ts')" title="No WhatsApp number" aria-label="No WhatsApp number">${waSvg}</button>`}</div></td></tr>`}).join('');
+    <td><div class="bg nw"><button class="btn btn-sm btn-o" onclick="viewDig(${x.id})">👁</button>${u?`<a class="btn btn-sm btn-w" href="${u}" target="_blank" rel="noopener noreferrer" title="Open WhatsApp" aria-label="Open WhatsApp">${waSvg}</a>`:`<button class="btn btn-sm btn-w" onclick="toast('No WhatsApp number','ts')" title="No WhatsApp number" aria-label="No WhatsApp number">${waSvg}</button>`}${role==='admin'?`<button class="btn btn-sm btn-o" onclick="deleteDig(${x.id})" title="Delete dignitary" aria-label="Delete dignitary">🗑</button>`:''}</div></td></tr>`}).join('');
   updateDigCounts();
   updateDashboardAnalytics();
 }
 function viewDig(_id){openM('viewDig')}
+async function deleteDig(id){
+  if(role!=='admin'){toast('Admin access required');return;}
+  if(!window.confirm('Delete this dignitary? This cannot be undone.'))return;
+  try{
+    await apiRequest(`/api/dignitaries/${Number(id)}`,{method:'DELETE'});
+    await syncBackendData();
+    renderDig();
+    refreshInviteSelectors();
+    toast('Dignitary deleted','ts');
+  }catch(e){
+    toast(e.message||'Delete failed');
+  }
+}
 function filterDig(){
   const s=document.getElementById('dSearch').value.toLowerCase(),c=document.getElementById('fCat').value,st=document.getElementById('fSt').value,k=(document.getElementById('digKarFilter')?.value||'');
   const src=role==='admin'?DIG:roleScopedDigs();
@@ -2020,14 +2192,19 @@ try{
     document.getElementById('loginRole').value=role;
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('appShell').classList.add('active');
-    hydrateUsers();
-    hydrateData();
-    applyRoleUI();
-    enhanceUI();
-    initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
-    applyPdfTemplate();
-    updPDF();
-    postLoginLanding();
+    syncBackendData().then(()=>{
+      applyRoleUI();
+      enhanceUI();
+      initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+      applyPdfTemplate();
+      updPDF();
+      postLoginLanding();
+    }).catch((e)=>{
+      toast(`Backend sync failed: ${e.message||'unknown error'}`);
+      clearAuthState();
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('appShell').classList.remove('active');
+    });
   }else{
     restoreLoginRemember();
   }
