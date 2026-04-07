@@ -131,14 +131,18 @@ function cleanText(value, maxLen = 200) {
   return value.trim().replace(/\s+/g, " ").slice(0, maxLen);
 }
 
-function createEncryptedBackup() {
-  const dbPath = path.join(__dirname, "..", "data", "prasar.db");
-  if (!fs.existsSync(dbPath)) return null;
+async function createEncryptedBackup() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const raw = fs.readFileSync(dbPath);
+  const tables = ["users", "dignitaries", "events", "invitations", "communications"];
+  const dump = {};
+  for (const table of tables) {
+    const result = await db.query(`SELECT * FROM ${table} ORDER BY id ASC`);
+    dump[table] = result.rows;
+  }
+  const raw = Buffer.from(JSON.stringify({ created_at: new Date().toISOString(), data: dump }, null, 2), "utf8");
   const hash = crypto.createHash("sha256").update(raw).digest("hex");
   if (!BACKUP_KEY) {
-    const plainPath = path.join(backupDir, `prasar-backup-${stamp}.db`);
+    const plainPath = path.join(backupDir, `prasar-backup-${stamp}.json`);
     fs.writeFileSync(plainPath, raw);
     return { file: plainPath, hash, encrypted: false };
   }
@@ -155,14 +159,16 @@ function createEncryptedBackup() {
 }
 
 // Users
-app.get("/api/users", (_req, res) => {
-  const rows = db
-    .prepare("SELECT id, full_name, email, role, status, created_at FROM users ORDER BY id DESC")
-    .all();
-  res.json(rows);
+app.get("/api/users", async (_req, res) => {
+  try {
+    const result = await db.query("SELECT id, full_name, email, role, status, created_at FROM users ORDER BY id DESC");
+    return res.json(result.rows);
+  } catch {
+    return res.status(500).json({ error: "Failed to load users." });
+  }
 });
 
-app.post("/api/users", (req, res) => {
+app.post("/api/users", async (req, res) => {
   const { fullName, email, role, status } = req.body || {};
   if (!fullName || !email || !role) {
     return badRequest(res, "fullName, email, and role are required.");
@@ -172,71 +178,82 @@ app.post("/api/users", (req, res) => {
   const safeStatus = status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
 
   try {
-    const result = db
-      .prepare("INSERT INTO users (full_name, email, role, status) VALUES (?, ?, ?, ?)")
-      .run(cleanText(fullName, 120), cleanText(email, 180).toLowerCase(), role, safeStatus);
-    const row = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
-    res.status(201).json(row);
+    const result = await db.query(
+      "INSERT INTO users (full_name, email, role, status) VALUES ($1, $2, $3, $4) RETURNING *",
+      [cleanText(fullName, 120), cleanText(email, 180).toLowerCase(), role, safeStatus]
+    );
+    return res.status(201).json(result.rows[0]);
   } catch (err) {
-    if (String(err.message).includes("UNIQUE")) return badRequest(res, "Email already exists.");
+    if (String(err.message).includes("duplicate key")) return badRequest(res, "Email already exists.");
     return res.status(500).json({ error: "Failed to create user." });
   }
 });
 
 // Dignitaries
-app.get("/api/dignitaries", (_req, res) => {
-  const rows = db
-    .prepare("SELECT id, full_name, email, designation, organization, created_at FROM dignitaries ORDER BY id DESC")
-    .all();
-  res.json(rows);
+app.get("/api/dignitaries", async (_req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT id, full_name, email, designation, organization, created_at FROM dignitaries ORDER BY id DESC"
+    );
+    return res.json(result.rows);
+  } catch {
+    return res.status(500).json({ error: "Failed to load dignitaries." });
+  }
 });
 
-app.post("/api/dignitaries", (req, res) => {
+app.post("/api/dignitaries", async (req, res) => {
   const { fullName, email, designation, organization } = req.body || {};
   if (!fullName || !email) return badRequest(res, "fullName and email are required.");
   if (!isEmail(email)) return badRequest(res, "Invalid email.");
 
   try {
-    const result = db
-      .prepare("INSERT INTO dignitaries (full_name, email, designation, organization) VALUES (?, ?, ?, ?)")
-      .run(
+    const result = await db.query(
+      "INSERT INTO dignitaries (full_name, email, designation, organization) VALUES ($1, $2, $3, $4) RETURNING *",
+      [
         cleanText(fullName, 120),
         cleanText(email, 180).toLowerCase(),
         cleanText(designation, 120),
-        cleanText(organization, 160)
-      );
-    const row = db.prepare("SELECT * FROM dignitaries WHERE id = ?").get(result.lastInsertRowid);
-    res.status(201).json(row);
+        cleanText(organization, 160),
+      ]
+    );
+    return res.status(201).json(result.rows[0]);
   } catch (err) {
-    if (String(err.message).includes("UNIQUE")) return badRequest(res, "Email already exists.");
+    if (String(err.message).includes("duplicate key")) return badRequest(res, "Email already exists.");
     return res.status(500).json({ error: "Failed to create dignitary." });
   }
 });
 
 // Events
-app.get("/api/events", (_req, res) => {
-  const rows = db
-    .prepare("SELECT id, title, event_date, venue, created_at FROM events ORDER BY event_date DESC")
-    .all();
-  res.json(rows);
+app.get("/api/events", async (_req, res) => {
+  try {
+    const result = await db.query("SELECT id, title, event_date, venue, created_at FROM events ORDER BY event_date DESC");
+    return res.json(result.rows);
+  } catch {
+    return res.status(500).json({ error: "Failed to load events." });
+  }
 });
 
-app.post("/api/events", (req, res) => {
+app.post("/api/events", async (req, res) => {
   const { title, eventDate, venue } = req.body || {};
   if (!title || !eventDate || !venue) {
     return badRequest(res, "title, eventDate, and venue are required.");
   }
-  const result = db
-    .prepare("INSERT INTO events (title, event_date, venue) VALUES (?, ?, ?)")
-    .run(cleanText(title, 160), eventDate, cleanText(venue, 180));
-  const row = db.prepare("SELECT * FROM events WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json(row);
+  try {
+    const result = await db.query("INSERT INTO events (title, event_date, venue) VALUES ($1, $2, $3) RETURNING *", [
+      cleanText(title, 160),
+      eventDate,
+      cleanText(venue, 180),
+    ]);
+    return res.status(201).json(result.rows[0]);
+  } catch {
+    return res.status(500).json({ error: "Failed to create event." });
+  }
 });
 
 // Invitations
-app.get("/api/invitations", (_req, res) => {
-  const rows = db
-    .prepare(`
+app.get("/api/invitations", async (_req, res) => {
+  try {
+    const result = await db.query(`
       SELECT i.id, i.custom_message, i.status, i.sent_at, i.created_at,
              d.id AS dignitary_id, d.full_name AS dignitary_name, d.email AS dignitary_email,
              e.id AS event_id, e.title AS event_title, e.event_date, e.venue
@@ -244,90 +261,101 @@ app.get("/api/invitations", (_req, res) => {
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
       ORDER BY i.id DESC
-    `)
-    .all();
-  res.json(rows);
+    `);
+    return res.json(result.rows);
+  } catch {
+    return res.status(500).json({ error: "Failed to load invitations." });
+  }
 });
 
-app.post("/api/invitations", (req, res) => {
+app.post("/api/invitations", async (req, res) => {
   const { dignitaryId, eventId, customMessage } = req.body || {};
   if (!dignitaryId || !eventId) return badRequest(res, "dignitaryId and eventId are required.");
-  const dignitary = db.prepare("SELECT * FROM dignitaries WHERE id = ?").get(dignitaryId);
-  const event = db.prepare("SELECT * FROM events WHERE id = ?").get(eventId);
-  if (!dignitary || !event) return badRequest(res, "Invalid dignitaryId or eventId.");
+  try {
+    const dignitary = await db.query("SELECT id FROM dignitaries WHERE id = $1", [dignitaryId]);
+    const event = await db.query("SELECT id FROM events WHERE id = $1", [eventId]);
+    if (!dignitary.rows[0] || !event.rows[0]) return badRequest(res, "Invalid dignitaryId or eventId.");
 
-  const result = db
-    .prepare("INSERT INTO invitations (dignitary_id, event_id, custom_message) VALUES (?, ?, ?)")
-    .run(dignitaryId, eventId, cleanText(customMessage, 2000));
-  const row = db.prepare("SELECT * FROM invitations WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json(row);
+    const result = await db.query(
+      "INSERT INTO invitations (dignitary_id, event_id, custom_message) VALUES ($1, $2, $3) RETURNING *",
+      [dignitaryId, eventId, cleanText(customMessage, 2000)]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch {
+    return res.status(500).json({ error: "Failed to create invitation." });
+  }
 });
 
-app.get("/api/invitations/:id/preview", (req, res) => {
-  const invite = db
-    .prepare(`
+app.get("/api/invitations/:id/preview", async (req, res) => {
+  try {
+    const result = await db.query(`
       SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.designation, d.organization, d.email,
              e.title AS event_title, e.event_date, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
-      WHERE i.id = ?
-    `)
-    .get(req.params.id);
-  if (!invite) return res.status(404).json({ error: "Invitation not found." });
-  res.json(invite);
+      WHERE i.id = $1
+    `, [req.params.id]);
+    const invite = result.rows[0];
+    if (!invite) return res.status(404).json({ error: "Invitation not found." });
+    return res.json(invite);
+  } catch {
+    return res.status(500).json({ error: "Failed to preview invitation." });
+  }
 });
 
-app.get("/api/invitations/:id/pdf", (req, res) => {
-  const invite = db
-    .prepare(`
+app.get("/api/invitations/:id/pdf", async (req, res) => {
+  try {
+    const result = await db.query(`
       SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.designation, d.organization, d.email,
              e.title AS event_title, e.event_date, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
-      WHERE i.id = ?
-    `)
-    .get(req.params.id);
-  if (!invite) return res.status(404).json({ error: "Invitation not found." });
+      WHERE i.id = $1
+    `, [req.params.id]);
+    const invite = result.rows[0];
+    if (!invite) return res.status(404).json({ error: "Invitation not found." });
 
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `inline; filename=invitation-${invite.id}.pdf`);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename=invitation-${invite.id}.pdf`);
 
-  const doc = new PDFDocument({ size: "A4", margin: 50 });
-  doc.pipe(res);
-  doc.fontSize(20).text("PRASAR Invitation", { align: "center" });
-  doc.moveDown();
-  doc.fontSize(12).text(`To: ${invite.dignitary_name}`);
-  doc.text(`Email: ${invite.email}`);
-  doc.text(`Designation: ${invite.designation || "-"}`);
-  doc.text(`Organization: ${invite.organization || "-"}`);
-  doc.moveDown();
-  doc.text(`Event: ${invite.event_title}`);
-  doc.text(`Date: ${invite.event_date}`);
-  doc.text(`Venue: ${invite.venue}`);
-  doc.moveDown();
-  doc.text("Message:");
-  doc.text(invite.custom_message || "You are cordially invited.", { lineGap: 4 });
-  doc.end();
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    doc.pipe(res);
+    doc.fontSize(20).text("PRASAR Invitation", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(12).text(`To: ${invite.dignitary_name}`);
+    doc.text(`Email: ${invite.email}`);
+    doc.text(`Designation: ${invite.designation || "-"}`);
+    doc.text(`Organization: ${invite.organization || "-"}`);
+    doc.moveDown();
+    doc.text(`Event: ${invite.event_title}`);
+    doc.text(`Date: ${invite.event_date}`);
+    doc.text(`Venue: ${invite.venue}`);
+    doc.moveDown();
+    doc.text("Message:");
+    doc.text(invite.custom_message || "You are cordially invited.", { lineGap: 4 });
+    doc.end();
+  } catch {
+    return res.status(500).json({ error: "Failed to render PDF." });
+  }
 });
 
 app.post("/api/invitations/:id/send-email", async (req, res) => {
   const { userId } = req.body || {};
   if (!userId) return badRequest(res, "userId is required.");
-  const sender = db.prepare("SELECT id FROM users WHERE id = ?").get(userId);
-  if (!sender) return badRequest(res, "Invalid userId.");
+  const sender = await db.query("SELECT id FROM users WHERE id = $1", [userId]);
+  if (!sender.rows[0]) return badRequest(res, "Invalid userId.");
 
-  const invite = db
-    .prepare(`
+  const inviteResult = await db.query(`
       SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.email,
              e.title AS event_title, e.event_date, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
-      WHERE i.id = ?
-    `)
-    .get(req.params.id);
+      WHERE i.id = $1
+    `, [req.params.id]);
+  const invite = inviteResult.rows[0];
   if (!invite) return res.status(404).json({ error: "Invitation not found." });
 
   const subject = `Invitation: ${invite.event_title}`;
@@ -350,22 +378,20 @@ app.post("/api/invitations/:id/send-email", async (req, res) => {
   const emlPath = path.join(outboxDir, `invitation-${invite.id}-${Date.now()}.eml`);
   fs.writeFileSync(emlPath, info.message);
 
-  db.prepare("UPDATE invitations SET status = 'SENT', sent_at = datetime('now') WHERE id = ?").run(invite.id);
-  db.prepare("INSERT INTO communications (dignitary_id, user_id, type, notes, happened_at) VALUES (?, ?, ?, ?, datetime('now'))")
-    .run(
-      db.prepare("SELECT dignitary_id FROM invitations WHERE id = ?").get(invite.id).dignitary_id,
-      userId,
-      "EMAIL",
-      `Invitation email generated locally for ${invite.event_title}`
-    );
+  await db.query("UPDATE invitations SET status = 'SENT', sent_at = NOW() WHERE id = $1", [invite.id]);
+  const dignitaryIdResult = await db.query("SELECT dignitary_id FROM invitations WHERE id = $1", [invite.id]);
+  await db.query(
+    "INSERT INTO communications (dignitary_id, user_id, type, notes, happened_at) VALUES ($1, $2, $3, $4, NOW())",
+    [dignitaryIdResult.rows[0].dignitary_id, userId, "EMAIL", `Invitation email generated locally for ${invite.event_title}`]
+  );
 
   res.json({ ok: true, outboxFile: path.basename(emlPath) });
 });
 
 // Communications
-app.get("/api/communications", (_req, res) => {
-  const rows = db
-    .prepare(`
+app.get("/api/communications", async (_req, res) => {
+  try {
+    const result = await db.query(`
       SELECT c.id, c.type, c.notes, c.happened_at, c.created_at,
              d.full_name AS dignitary_name,
              u.full_name AS user_name
@@ -373,35 +399,41 @@ app.get("/api/communications", (_req, res) => {
       JOIN dignitaries d ON d.id = c.dignitary_id
       JOIN users u ON u.id = c.user_id
       ORDER BY c.happened_at DESC, c.id DESC
-    `)
-    .all();
-  res.json(rows);
+    `);
+    return res.json(result.rows);
+  } catch {
+    return res.status(500).json({ error: "Failed to load communications." });
+  }
 });
 
-app.post("/api/communications", (req, res) => {
+app.post("/api/communications", async (req, res) => {
   const { dignitaryId, userId, type, notes, happenedAt } = req.body || {};
   if (!dignitaryId || !userId || !type || !notes || !happenedAt) {
     return badRequest(res, "dignitaryId, userId, type, notes, happenedAt are required.");
   }
   const allowedTypes = ["PHONE_CALL", "WHATSAPP", "EMAIL", "VISIT", "PDF_SENT", "GIFT"];
   if (!allowedTypes.includes(type)) return badRequest(res, "Invalid communication type.");
-  const dignitary = db.prepare("SELECT id FROM dignitaries WHERE id = ?").get(dignitaryId);
-  const user = db.prepare("SELECT id FROM users WHERE id = ?").get(userId);
-  if (!dignitary || !user) return badRequest(res, "Invalid dignitaryId or userId.");
+  const dignitary = await db.query("SELECT id FROM dignitaries WHERE id = $1", [dignitaryId]);
+  const user = await db.query("SELECT id FROM users WHERE id = $1", [userId]);
+  if (!dignitary.rows[0] || !user.rows[0]) return badRequest(res, "Invalid dignitaryId or userId.");
   const dt = new Date(happenedAt);
   if (Number.isNaN(dt.getTime())) return badRequest(res, "Invalid happenedAt date.");
 
-  const result = db
-    .prepare("INSERT INTO communications (dignitary_id, user_id, type, notes, happened_at) VALUES (?, ?, ?, ?, ?)")
-    .run(dignitaryId, userId, type, cleanText(notes, 3000), dt.toISOString());
-  const row = db.prepare("SELECT * FROM communications WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json(row);
+  try {
+    const result = await db.query(
+      "INSERT INTO communications (dignitary_id, user_id, type, notes, happened_at) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [dignitaryId, userId, type, cleanText(notes, 3000), dt.toISOString()]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch {
+    return res.status(500).json({ error: "Failed to create communication." });
+  }
 });
 
-app.post("/api/system/backup", (_req, res) => {
+app.post("/api/system/backup", async (_req, res) => {
   try {
-    const details = createEncryptedBackup();
-    if (!details) return res.status(404).json({ error: "Database file not found." });
+    const details = await createEncryptedBackup();
+    if (!details) return res.status(404).json({ error: "Database backup source not found." });
     return res.json({
       ok: true,
       backupFile: path.basename(details.file),
@@ -414,12 +446,13 @@ app.post("/api/system/backup", (_req, res) => {
 });
 
 setInterval(() => {
-  try {
-    const details = createEncryptedBackup();
-    if (details) console.log(`Backup created: ${path.basename(details.file)}`);
-  } catch {
-    console.error("Scheduled backup failed.");
-  }
+  createEncryptedBackup()
+    .then((details) => {
+      if (details) console.log(`Backup created: ${path.basename(details.file)}`);
+    })
+    .catch(() => {
+      console.error("Scheduled backup failed.");
+    });
 }, 6 * 60 * 60 * 1000);
 
 app.use((_req, res) => {
@@ -433,6 +466,14 @@ app.use((err, _req, res, _next) => {
   return res.status(500).json({ error: "Internal server error." });
 });
 
-app.listen(PORT, () => {
-  console.log(`PRASAR local server running at http://localhost:${PORT}`);
-});
+db
+  .init()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`PRASAR server running at port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to initialize database schema:", err.message);
+    process.exit(1);
+  });
