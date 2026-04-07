@@ -24,6 +24,7 @@ async function init() {
       id BIGSERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       event_date TEXT NOT NULL,
+      event_time TEXT,
       venue TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -56,6 +57,8 @@ async function init() {
       happened_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;
   `);
 }
 

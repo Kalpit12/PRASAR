@@ -334,7 +334,7 @@ app.delete("/api/dignitaries/:id", async (req, res) => {
 // Events
 app.get("/api/events", async (_req, res) => {
   try {
-    const result = await db.query("SELECT id, title, event_date, venue, created_at FROM events ORDER BY event_date DESC");
+    const result = await db.query("SELECT id, title, event_date, event_time, venue, created_at FROM events ORDER BY event_date DESC");
     return res.json(result.rows);
   } catch {
     return res.status(500).json({ error: "Failed to load events." });
@@ -342,14 +342,15 @@ app.get("/api/events", async (_req, res) => {
 });
 
 app.post("/api/events", async (req, res) => {
-  const { title, eventDate, venue } = req.body || {};
+  const { title, eventDate, eventTime, venue } = req.body || {};
   if (!title || !eventDate || !venue) {
     return badRequest(res, "title, eventDate, and venue are required.");
   }
   try {
-    const result = await db.query("INSERT INTO events (title, event_date, venue) VALUES ($1, $2, $3) RETURNING *", [
+    const result = await db.query("INSERT INTO events (title, event_date, event_time, venue) VALUES ($1, $2, $3, $4) RETURNING *", [
       cleanText(title, 160),
       eventDate,
+      cleanText(eventTime || "", 20),
       cleanText(venue, 180),
     ]);
     return res.status(201).json(result.rows[0]);
@@ -364,7 +365,7 @@ app.get("/api/invitations", async (_req, res) => {
     const result = await db.query(`
       SELECT i.id, i.custom_message, i.status, i.sent_at, i.created_at,
              d.id AS dignitary_id, d.full_name AS dignitary_name, d.email AS dignitary_email,
-             e.id AS event_id, e.title AS event_title, e.event_date, e.venue
+             e.id AS event_id, e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
@@ -398,7 +399,7 @@ app.get("/api/invitations/:id/preview", async (req, res) => {
   try {
     const result = await db.query(`
       SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.designation, d.organization, d.email,
-             e.title AS event_title, e.event_date, e.venue
+             e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
@@ -416,7 +417,7 @@ app.get("/api/invitations/:id/pdf", async (req, res) => {
   try {
     const result = await db.query(`
       SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.designation, d.organization, d.email,
-             e.title AS event_title, e.event_date, e.venue
+             e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
@@ -457,7 +458,7 @@ app.post("/api/invitations/:id/send-email", async (req, res) => {
 
   const inviteResult = await db.query(`
       SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.email,
-             e.title AS event_title, e.event_date, e.venue
+             e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id

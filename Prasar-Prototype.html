@@ -899,7 +899,7 @@ function mapEventFromApi(e){
     dbId:Number(e.id),
     name:e.title||'',
     date:e.event_date||'',
-    time:'',
+    time:e.event_time||'',
     venue:e.venue||'',
     desc:'',
     createdBy:'Admin User'
@@ -1496,7 +1496,7 @@ function importDigs(){
     fn:parts[0]||'',
     ln:parts.slice(1).join(' ')||'',
     pn:'',
-    des:val(r,['designation','role','title']),
+    des:val(r,['designation','role','title','position']),
     org:val(r,['organization','organisation','company','institution']),
     cat:category,
     k:val(r,['karyakar','owner','assignedto'])||'Unassigned',
@@ -1564,6 +1564,7 @@ async function saveEvt(){
       body:JSON.stringify({
         title:document.getElementById('evtName').value.trim(),
         eventDate:document.getElementById('evtDate').value,
+        eventTime:time,
         venue:document.getElementById('evtVenue').value.trim()
       })
     });
