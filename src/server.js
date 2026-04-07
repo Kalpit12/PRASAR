@@ -269,12 +269,19 @@ app.post("/api/dignitaries/import", async (req, res) => {
     let fullName = cleanText(raw.fullName || "", 120);
     const designation = cleanText(raw.designation || "", 120);
     const organization = cleanText(raw.organization || "", 160);
+    const rawEmail = cleanText(raw.email || "", 180).toLowerCase();
+
+    // Skip totally blank rows (prevents creating fake "Imported Dignitary N" records)
+    if (!fullName && !designation && !organization && !rawEmail) {
+      stats.skipped++;
+      continue;
+    }
     if (!fullName) {
       fullName = organization || `Imported Dignitary ${i + 1}`;
       stats.generatedName++;
     }
 
-    let email = cleanText(raw.email || "", 180).toLowerCase();
+    let email = rawEmail;
     if (!looksLikeEmail(email)) {
       const base = slugText(fullName) || `imported.${Date.now()}.${i + 1}`;
       email = `${base}@import.prasar.local`;

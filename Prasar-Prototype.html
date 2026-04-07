@@ -1543,8 +1543,9 @@ function importDigs(){
   const reader=new FileReader();
   reader.onload=()=>{
     const wb=XLSX.read(reader.result,{type:'array'});
+    const pickNames = wb.SheetNames.includes('Data') ? ['Data'] : wb.SheetNames;
     const allRows=[];
-    wb.SheetNames.forEach((sheetName)=>{
+    pickNames.forEach((sheetName)=>{
       const ws=wb.Sheets[sheetName];
       const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       allRows.push(...rows);
