@@ -1507,15 +1507,34 @@ function importDigs(){
     };
   };
   const dedupe=new Set(DIG.map(d=>digKey(d)));
-  const finish=(rows)=>{
+  const finish=async (rows)=>{
     const parsed=rows.map(toRow).filter(x=>x.fn||x.ln||x.email);
-    let added=0;
-    let skipped=0;
-    parsed.forEach(x=>{
+    let added=0, skipped=0, failed=0;
+    for(const x of parsed){
       const k=digKey(x);
-      if(!dedupe.has(k)){dedupe.add(k);DIG.push(x);added++;}else skipped++;
-    });
-    persistData();renderDig();refreshInviteSelectors();closeM('importDig');toast(`${added} imported${skipped?`, ${skipped} skipped`:''}`,'ts');
+      if(dedupe.has(k)){skipped++;continue;}
+      if(!x.email){skipped++;continue;}
+      try{
+        await apiRequest('/api/dignitaries',{
+          method:'POST',
+          body:JSON.stringify({
+            fullName:`${x.fn} ${x.ln}`.trim(),
+            email:x.email,
+            designation:x.des||'',
+            organization:x.org||''
+          })
+        });
+        dedupe.add(k);
+        added++;
+      }catch(_e){
+        failed++;
+      }
+    }
+    await syncBackendData();
+    renderDig();
+    refreshInviteSelectors();
+    closeM('importDig');
+    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${failed?`, ${failed} failed`:''}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
@@ -1527,7 +1546,7 @@ function importDigs(){
         const vals=line.split(',');
         const o={};cols.forEach((c,i)=>o[c]=vals[i]?.trim()||'');return o;
       });
-      finish(rows);
+      finish(rows).catch(e=>toast(e.message||'Import failed'));
     };
     reader.readAsText(f);
     return;
@@ -1536,7 +1555,7 @@ function importDigs(){
   reader.onload=()=>{
     const wb=XLSX.read(reader.result,{type:'array'});
     const ws=wb.Sheets[wb.SheetNames[0]];
-    finish(XLSX.utils.sheet_to_json(ws,{defval:''}));
+    finish(XLSX.utils.sheet_to_json(ws,{defval:''})).catch(e=>toast(e.message||'Import failed'));
   };
   reader.readAsArrayBuffer(f);
 }
