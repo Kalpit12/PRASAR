@@ -10,10 +10,11 @@ const PDFDocument = require("pdfkit");
 const db = require("./db");
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const prototypeFile = path.join(__dirname, "..", "Prasar-Prototype.html");
 const secretsFile = path.join(__dirname, "..", "data", "runtime-secrets.json");
 let fileSecrets = {};
+fs.mkdirSync(path.dirname(secretsFile), { recursive: true });
 if (fs.existsSync(secretsFile)) {
   try {
     fileSecrets = JSON.parse(fs.readFileSync(secretsFile, "utf8"));
@@ -37,6 +38,7 @@ if (!API_KEY) {
   process.exit(1);
 }
 const allowedOrigins = new Set(["http://localhost:3000", "http://127.0.0.1:3000"]);
+if (process.env.RENDER_EXTERNAL_URL) allowedOrigins.add(process.env.RENDER_EXTERNAL_URL);
 const backupDir = path.join(__dirname, "..", "data", "backups");
 fs.mkdirSync(backupDir, { recursive: true });
 
@@ -86,6 +88,12 @@ app.use("/api", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
 });
+
+// Public health check (Render will call this without auth headers)
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
 app.use("/api", requireApiKey);
 app.use("/local-app", express.static(path.join(__dirname, "..", "public")));
 app.get("/favicon.ico", (_req, res) => res.status(204).end());
@@ -145,10 +153,6 @@ function createEncryptedBackup() {
   fs.writeFileSync(outPath, payload);
   return { file: outPath, hash, encrypted: true };
 }
-
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
-});
 
 // Users
 app.get("/api/users", (_req, res) => {
