@@ -1507,13 +1507,17 @@ function importDigs(){
     };
   };
   const dedupe=new Set(DIG.map(d=>digKey(d)));
+  const emailSeen=new Set(DIG.map(d=>String(d.email||'').trim().toLowerCase()).filter(Boolean));
+  const isEmail=(v)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim());
   const finish=async (rows)=>{
     const parsed=rows.map(toRow).filter(x=>x.fn||x.ln||x.email);
-    let added=0, skipped=0, failed=0;
+    let added=0, skipped=0, failed=0, invalid=0, duplicate=0;
     for(const x of parsed){
+      x.email=String(x.email||'').trim().toLowerCase();
       const k=digKey(x);
-      if(dedupe.has(k)){skipped++;continue;}
-      if(!x.email){skipped++;continue;}
+      if(dedupe.has(k)){skipped++;duplicate++;continue;}
+      if(!x.email || !isEmail(x.email)){skipped++;invalid++;continue;}
+      if(emailSeen.has(x.email)){skipped++;duplicate++;continue;}
       try{
         await apiRequest('/api/dignitaries',{
           method:'POST',
@@ -1525,6 +1529,7 @@ function importDigs(){
           })
         });
         dedupe.add(k);
+        emailSeen.add(x.email);
         added++;
       }catch(_e){
         failed++;
@@ -1534,7 +1539,7 @@ function importDigs(){
     renderDig();
     refreshInviteSelectors();
     closeM('importDig');
-    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${failed?`, ${failed} failed`:''}`,'ts');
+    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid email`:''}${duplicate?`, ${duplicate} duplicate`:''}${failed?`, ${failed} failed`:''}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
