@@ -1522,17 +1522,20 @@ function importDigs(){
     return candidate;
   };
   const finish=async (rows)=>{
-    const parsed=rows.map(toRow).filter(x=>x.fn||x.ln||x.email);
-    let added=0, skipped=0, failed=0, invalid=0, duplicate=0, generatedEmail=0, generatedName=0;
+    const parsed=rows.map(toRow);
+    let added=0, skipped=0, failed=0, invalid=0, duplicate=0, generatedEmail=0, generatedName=0, blank=0;
     const failReasons={};
     for(let i=0;i<parsed.length;i++){
       const x=parsed[i];
+      if(!x) { blank++; continue; }
       x.email=String(x.email||'').trim().toLowerCase();
       let fullName=`${x.fn||''} ${x.ln||''}`.trim();
+      const orgName=String(x.org||'').trim();
+      if(!fullName && !x.email && !orgName){ blank++; continue; }
       const k=digKey(x);
       if(dedupe.has(k)){skipped++;duplicate++;continue;}
       if(!fullName){
-        fullName=(x.org&&String(x.org).trim())?String(x.org).trim():`Imported Dignitary ${i+1}`;
+        fullName=orgName||`Imported Dignitary ${i+1}`;
         generatedName++;
       }
       if(!x.email || !isEmail(x.email)){
@@ -1589,7 +1592,7 @@ function importDigs(){
     refreshInviteSelectors();
     closeM('importDig');
     const topReason=Object.entries(failReasons).sort((a,b)=>b[1]-a[1])[0];
-    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid/incomplete`:''}${duplicate?`, ${duplicate} duplicate`:''}${generatedEmail?`, ${generatedEmail} email auto-generated`:''}${generatedName?`, ${generatedName} name auto-generated`:''}${failed?`, ${failed} failed`:''}${topReason?` (top error: ${topReason[0]} x${topReason[1]})`:''}`,'ts');
+    toast(`${added}/${rows.length} imported${blank?`, ${blank} blank`:''}${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid/incomplete`:''}${duplicate?`, ${duplicate} duplicate`:''}${generatedEmail?`, ${generatedEmail} email auto-generated`:''}${generatedName?`, ${generatedName} name auto-generated`:''}${failed?`, ${failed} failed`:''}${topReason?` (top error: ${topReason[0]} x${topReason[1]})`:''}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
@@ -1609,8 +1612,13 @@ function importDigs(){
   const reader=new FileReader();
   reader.onload=()=>{
     const wb=XLSX.read(reader.result,{type:'array'});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    finish(XLSX.utils.sheet_to_json(ws,{defval:''})).catch(e=>toast(e.message||'Import failed'));
+    const allRows=[];
+    wb.SheetNames.forEach((sheetName)=>{
+      const ws=wb.Sheets[sheetName];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      allRows.push(...rows);
+    });
+    finish(allRows).catch(e=>toast(e.message||'Import failed'));
   };
   reader.readAsArrayBuffer(f);
 }
