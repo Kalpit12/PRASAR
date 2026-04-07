@@ -145,6 +145,16 @@ function cleanText(value, maxLen = 200) {
   if (typeof value !== "string") return "";
   return value.trim().replace(/\s+/g, " ").slice(0, maxLen);
 }
+function looksLikeEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+function slugText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "")
+    .replace(/\.+/g, ".");
+}
 
 async function createEncryptedBackup() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -236,6 +246,66 @@ app.post("/api/dignitaries", async (req, res) => {
     if (String(err.message).includes("duplicate key")) return badRequest(res, "Email already exists.");
     return res.status(500).json({ error: "Failed to create dignitary." });
   }
+});
+
+app.post("/api/dignitaries/import", async (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+  if (!rows) return badRequest(res, "rows[] is required.");
+  if (rows.length > 5000) return badRequest(res, "Too many rows. Max 5000 per import.");
+
+  const stats = {
+    total: rows.length,
+    added: 0,
+    skipped: 0,
+    invalid: 0,
+    duplicate: 0,
+    generatedEmail: 0,
+    generatedName: 0,
+    failed: 0,
+  };
+
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i] || {};
+    let fullName = cleanText(raw.fullName || "", 120);
+    const designation = cleanText(raw.designation || "", 120);
+    const organization = cleanText(raw.organization || "", 160);
+    if (!fullName) {
+      fullName = organization || `Imported Dignitary ${i + 1}`;
+      stats.generatedName++;
+    }
+
+    let email = cleanText(raw.email || "", 180).toLowerCase();
+    if (!looksLikeEmail(email)) {
+      const base = slugText(fullName) || `imported.${Date.now()}.${i + 1}`;
+      email = `${base}@import.prasar.local`;
+      stats.generatedEmail++;
+    }
+
+    let inserted = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const tryEmail = attempt === 0 ? email : `${email.split("@")[0]}+${attempt}@${email.split("@")[1] || "import.prasar.local"}`;
+      try {
+        const result = await db.query(
+          "INSERT INTO dignitaries (full_name, email, designation, organization) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING RETURNING id",
+          [fullName, tryEmail, designation, organization]
+        );
+        if (result.rows[0]) {
+          stats.added++;
+          inserted = true;
+          break;
+        }
+      } catch {
+        // keep trying next fallback email
+      }
+    }
+
+    if (!inserted) {
+      stats.skipped++;
+      stats.duplicate++;
+    }
+  }
+
+  return res.json({ ok: true, stats });
 });
 
 app.delete("/api/dignitaries/:id", async (req, res) => {

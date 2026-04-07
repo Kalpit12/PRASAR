@@ -1507,92 +1507,23 @@ function importDigs(){
     wa:val(r,['whatsapp','whatsappnumber','whatsappno','phone','phonenumber','mobile','mobilenumber','contact','contactnumber'])
     };
   };
-  const dedupe=new Set(DIG.map(d=>digKey(d)));
-  const emailSeen=new Set(DIG.map(d=>String(d.email||'').trim().toLowerCase()).filter(Boolean));
-  const isEmail=(v)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim());
-  const slug=(v)=>String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'').replace(/\.+/g,'.');
-  const ensureUniqueEmail=(base)=>{
-    let candidate=base;
-    let n=1;
-    while(emailSeen.has(candidate)){
-      const parts=base.split('@');
-      candidate=`${parts[0]}+${n}@${parts[1]||'import.prasar.local'}`;
-      n++;
-    }
-    return candidate;
-  };
   const finish=async (rows)=>{
-    const parsed=rows.map(toRow);
-    let added=0, skipped=0, failed=0, invalid=0, duplicate=0, generatedEmail=0, generatedName=0, blank=0;
-    const failReasons={};
-    for(let i=0;i<parsed.length;i++){
-      const x=parsed[i];
-      if(!x) { blank++; continue; }
-      x.email=String(x.email||'').trim().toLowerCase();
-      let fullName=`${x.fn||''} ${x.ln||''}`.trim();
-      const orgName=String(x.org||'').trim();
-      if(!fullName && !x.email && !orgName){ blank++; continue; }
-      const k=digKey(x);
-      if(dedupe.has(k)){skipped++;duplicate++;continue;}
-      if(!fullName){
-        fullName=orgName||`Imported Dignitary ${i+1}`;
-        generatedName++;
-      }
-      if(!x.email || !isEmail(x.email)){
-        const baseLocal=slug(fullName)||`imported.${Date.now()}.${i+1}`;
-        x.email=`${baseLocal}@import.prasar.local`;
-        generatedEmail++;
-      }
-      x.email=ensureUniqueEmail(x.email);
-      try{
-        await apiRequest('/api/dignitaries',{
-          method:'POST',
-          body:JSON.stringify({
-            fullName,
-            email:x.email,
-            designation:x.des||'',
-            organization:x.org||''
-          })
-        });
-        dedupe.add(k);
-        emailSeen.add(x.email);
-        added++;
-      }catch(err){
-        const msg=String(err?.message||'Request failed');
-        if(msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('duplicate')){
-          // Retry once with a guaranteed-unique synthetic email.
-          try{
-            const retryEmail=ensureUniqueEmail(`${slug(fullName)||`imported.${Date.now()}.${i+1}`}@import.prasar.local`);
-            await apiRequest('/api/dignitaries',{
-              method:'POST',
-              body:JSON.stringify({
-                fullName,
-                email:retryEmail,
-                designation:x.des||'',
-                organization:x.org||''
-              })
-            });
-            dedupe.add(k);
-            emailSeen.add(retryEmail);
-            added++;
-            generatedEmail++;
-            continue;
-          }catch{
-            skipped++;
-            duplicate++;
-            continue;
-          }
-        }
-        failed++;
-        failReasons[msg]=(failReasons[msg]||0)+1;
-      }
-    }
+    const parsed=rows.map(toRow).map((x)=>({
+      fullName:`${x?.fn||''} ${x?.ln||''}`.trim(),
+      email:String(x?.email||'').trim().toLowerCase(),
+      designation:String(x?.des||'').trim(),
+      organization:String(x?.org||'').trim()
+    }));
+    const result=await apiRequest('/api/dignitaries/import',{
+      method:'POST',
+      body:JSON.stringify({rows:parsed})
+    });
     await syncBackendData();
     renderDig();
     refreshInviteSelectors();
     closeM('importDig');
-    const topReason=Object.entries(failReasons).sort((a,b)=>b[1]-a[1])[0];
-    toast(`${added}/${rows.length} imported${blank?`, ${blank} blank`:''}${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid/incomplete`:''}${duplicate?`, ${duplicate} duplicate`:''}${generatedEmail?`, ${generatedEmail} email auto-generated`:''}${generatedName?`, ${generatedName} name auto-generated`:''}${failed?`, ${failed} failed`:''}${topReason?` (top error: ${topReason[0]} x${topReason[1]})`:''}`,'ts');
+    const s=result?.stats||{};
+    toast(`${s.added||0}/${s.total||rows.length} imported${s.skipped?`, ${s.skipped} skipped`:''}${s.duplicate?`, ${s.duplicate} duplicate`:''}${s.generatedEmail?`, ${s.generatedEmail} email auto-generated`:''}${s.generatedName?`, ${s.generatedName} name auto-generated`:''}${s.failed?`, ${s.failed} failed`:''}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
