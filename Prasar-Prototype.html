@@ -1486,7 +1486,7 @@ function importDigs(){
   };
   const toRow=(raw)=>{
     const r=normalizeRow(raw);
-    const fullName=val(r,['name','fullname','guestname'])||`${val(r,['firstname','first'])} ${val(r,['lastname','last'])}`.trim();
+    const fullName=val(r,['name','fullname','guestname','full_name'])||`${val(r,['firstname','first','first_name'])} ${val(r,['lastname','last','last_name'])}`.trim();
     const parts=fullName.split(' ').filter(Boolean);
     const cat=val(r,['category','type'])||'Government';
     const category=CT[cat]?cat:'Government';
@@ -1502,25 +1502,45 @@ function importDigs(){
     k:val(r,['karyakar','owner','assignedto'])||'Unassigned',
     lc:'—',
     st:val(r,['status'])||'Active',
-    email:val(r,['email','mail','emailaddress']),
+    // Map common Excel/CSV email header variants to backend "email".
+    email:val(r,['email','mail','emailaddress','officialemail','workemail','companyemail','emailid','e-mail']),
     wa:val(r,['whatsapp','whatsappnumber','whatsappno','phone','phonenumber','mobile','mobilenumber','contact','contactnumber'])
     };
   };
   const dedupe=new Set(DIG.map(d=>digKey(d)));
   const emailSeen=new Set(DIG.map(d=>String(d.email||'').trim().toLowerCase()).filter(Boolean));
   const isEmail=(v)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim());
+  const slug=(v)=>String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'').replace(/\.+/g,'.');
+  const ensureUniqueEmail=(base)=>{
+    let candidate=base;
+    let n=1;
+    while(emailSeen.has(candidate)){
+      const parts=base.split('@');
+      candidate=`${parts[0]}+${n}@${parts[1]||'import.prasar.local'}`;
+      n++;
+    }
+    return candidate;
+  };
   const finish=async (rows)=>{
     const parsed=rows.map(toRow).filter(x=>x.fn||x.ln||x.email);
-    let added=0, skipped=0, failed=0, invalid=0, duplicate=0;
+    let added=0, skipped=0, failed=0, invalid=0, duplicate=0, generatedEmail=0, generatedName=0;
     const failReasons={};
-    for(const x of parsed){
+    for(let i=0;i<parsed.length;i++){
+      const x=parsed[i];
       x.email=String(x.email||'').trim().toLowerCase();
-      const fullName=`${x.fn||''} ${x.ln||''}`.trim();
+      let fullName=`${x.fn||''} ${x.ln||''}`.trim();
       const k=digKey(x);
       if(dedupe.has(k)){skipped++;duplicate++;continue;}
-      if(!x.email || !isEmail(x.email)){skipped++;invalid++;continue;}
-      if(!fullName){skipped++;invalid++;continue;}
-      if(emailSeen.has(x.email)){skipped++;duplicate++;continue;}
+      if(!fullName){
+        fullName=(x.org&&String(x.org).trim())?String(x.org).trim():`Imported Dignitary ${i+1}`;
+        generatedName++;
+      }
+      if(!x.email || !isEmail(x.email)){
+        const baseLocal=slug(fullName)||`imported.${Date.now()}.${i+1}`;
+        x.email=`${baseLocal}@import.prasar.local`;
+        generatedEmail++;
+      }
+      x.email=ensureUniqueEmail(x.email);
       try{
         await apiRequest('/api/dignitaries',{
           method:'POST',
@@ -1537,10 +1557,28 @@ function importDigs(){
       }catch(err){
         const msg=String(err?.message||'Request failed');
         if(msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('duplicate')){
-          skipped++;
-          duplicate++;
-          emailSeen.add(x.email);
-          continue;
+          // Retry once with a guaranteed-unique synthetic email.
+          try{
+            const retryEmail=ensureUniqueEmail(`${slug(fullName)||`imported.${Date.now()}.${i+1}`}@import.prasar.local`);
+            await apiRequest('/api/dignitaries',{
+              method:'POST',
+              body:JSON.stringify({
+                fullName,
+                email:retryEmail,
+                designation:x.des||'',
+                organization:x.org||''
+              })
+            });
+            dedupe.add(k);
+            emailSeen.add(retryEmail);
+            added++;
+            generatedEmail++;
+            continue;
+          }catch{
+            skipped++;
+            duplicate++;
+            continue;
+          }
         }
         failed++;
         failReasons[msg]=(failReasons[msg]||0)+1;
@@ -1551,7 +1589,7 @@ function importDigs(){
     refreshInviteSelectors();
     closeM('importDig');
     const topReason=Object.entries(failReasons).sort((a,b)=>b[1]-a[1])[0];
-    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid/incomplete`:''}${duplicate?`, ${duplicate} duplicate`:''}${failed?`, ${failed} failed`:''}${topReason?` (top error: ${topReason[0]} x${topReason[1]})`:''}`,'ts');
+    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid/incomplete`:''}${duplicate?`, ${duplicate} duplicate`:''}${generatedEmail?`, ${generatedEmail} email auto-generated`:''}${generatedName?`, ${generatedName} name auto-generated`:''}${failed?`, ${failed} failed`:''}${topReason?` (top error: ${topReason[0]} x${topReason[1]})`:''}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
