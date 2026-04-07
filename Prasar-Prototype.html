@@ -1512,17 +1512,20 @@ function importDigs(){
   const finish=async (rows)=>{
     const parsed=rows.map(toRow).filter(x=>x.fn||x.ln||x.email);
     let added=0, skipped=0, failed=0, invalid=0, duplicate=0;
+    const failReasons={};
     for(const x of parsed){
       x.email=String(x.email||'').trim().toLowerCase();
+      const fullName=`${x.fn||''} ${x.ln||''}`.trim();
       const k=digKey(x);
       if(dedupe.has(k)){skipped++;duplicate++;continue;}
       if(!x.email || !isEmail(x.email)){skipped++;invalid++;continue;}
+      if(!fullName){skipped++;invalid++;continue;}
       if(emailSeen.has(x.email)){skipped++;duplicate++;continue;}
       try{
         await apiRequest('/api/dignitaries',{
           method:'POST',
           body:JSON.stringify({
-            fullName:`${x.fn} ${x.ln}`.trim(),
+            fullName,
             email:x.email,
             designation:x.des||'',
             organization:x.org||''
@@ -1531,15 +1534,24 @@ function importDigs(){
         dedupe.add(k);
         emailSeen.add(x.email);
         added++;
-      }catch(_e){
+      }catch(err){
+        const msg=String(err?.message||'Request failed');
+        if(msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('duplicate')){
+          skipped++;
+          duplicate++;
+          emailSeen.add(x.email);
+          continue;
+        }
         failed++;
+        failReasons[msg]=(failReasons[msg]||0)+1;
       }
     }
     await syncBackendData();
     renderDig();
     refreshInviteSelectors();
     closeM('importDig');
-    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid email`:''}${duplicate?`, ${duplicate} duplicate`:''}${failed?`, ${failed} failed`:''}`,'ts');
+    const topReason=Object.entries(failReasons).sort((a,b)=>b[1]-a[1])[0];
+    toast(`${added} imported${skipped?`, ${skipped} skipped`:''}${invalid?`, ${invalid} invalid/incomplete`:''}${duplicate?`, ${duplicate} duplicate`:''}${failed?`, ${failed} failed`:''}${topReason?` (top error: ${topReason[0]} x${topReason[1]})`:''}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
