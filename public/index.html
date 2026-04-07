@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PRASAR Local</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f6f7fb; color: #1c1c1c; }
+    header { background: #16213e; color: #fff; padding: 14px 20px; font-weight: 700; }
+    main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { border: 1px solid #ccc; padding: 8px 12px; background: #fff; cursor: pointer; border-radius: 6px; }
+    .tab.active { background: #16213e; color: #fff; border-color: #16213e; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 14px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    label { font-size: 12px; display: block; margin-bottom: 4px; }
+    input, select, textarea, button { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #bbb; }
+    button { cursor: pointer; background: #16213e; color: #fff; border-color: #16213e; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #eee; text-align: left; padding: 8px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    pre { white-space: pre-wrap; background: #f2f4f8; padding: 12px; border-radius: 6px; border: 1px solid #ddd; }
+    .small { font-size: 12px; color: #555; }
+  </style>
+</head>
+<body>
+  <header>PRASAR Local Implementation (No Demo Data)</header>
+  <main>
+    <div class="tabs">
+      <button class="tab active" data-page="users">User Management</button>
+      <button class="tab" data-page="invitations">Invitations</button>
+      <button class="tab" data-page="communications">Communications Timeline</button>
+    </div>
+
+    <section class="page active" id="page-users">
+      <div class="card">
+        <h3>Create User</h3>
+        <div class="grid">
+          <div><label>Full Name</label><input id="uName" /></div>
+          <div><label>Email</label><input id="uEmail" type="email" /></div>
+          <div><label>Role</label><select id="uRole"><option>ADMIN</option><option>KARYAKAR</option></select></div>
+          <div><label>Status</label><select id="uStatus"><option>ACTIVE</option><option>INACTIVE</option></select></div>
+        </div>
+        <div style="margin-top:10px"><button onclick="createUser()">Create User</button></div>
+      </div>
+      <div class="card">
+        <h3>Users</h3>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th></tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="page" id="page-invitations">
+      <div class="two">
+        <div>
+          <div class="card">
+            <h3>Create Dignitary</h3>
+            <div class="grid">
+              <div><label>Full Name</label><input id="dName" /></div>
+              <div><label>Email</label><input id="dEmail" type="email" /></div>
+              <div><label>Designation</label><input id="dDes" /></div>
+              <div><label>Organization</label><input id="dOrg" /></div>
+            </div>
+            <div style="margin-top:10px"><button onclick="createDignitary()">Create Dignitary</button></div>
+          </div>
+          <div class="card">
+            <h3>Create Event</h3>
+            <div class="grid">
+              <div><label>Title</label><input id="eTitle" /></div>
+              <div><label>Date</label><input id="eDate" type="date" /></div>
+              <div style="grid-column: span 2"><label>Venue</label><input id="eVenue" /></div>
+            </div>
+            <div style="margin-top:10px"><button onclick="createEvent()">Create Event</button></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3>Create Invitation</h3>
+            <div class="grid">
+              <div><label>Dignitary</label><select id="iDignitary"></select></div>
+              <div><label>Event</label><select id="iEvent"></select></div>
+            </div>
+            <div><label>Custom Message</label><textarea id="iMsg"></textarea></div>
+            <div style="margin-top:10px"><button onclick="createInvitation()">Create Invitation</button></div>
+          </div>
+          <div class="card">
+            <h3>PDF Preview</h3>
+            <pre id="previewBox">Select an invitation and click Preview.</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Invitations</h3>
+        <table>
+          <thead><tr><th>ID</th><th>Dignitary</th><th>Event</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="invBody"></tbody>
+        </table>
+        <p class="small">Email send is local-only and stored as .eml in <code>data/outbox</code>.</p>
+      </div>
+    </section>
+
+    <section class="page" id="page-communications">
+      <div class="card">
+        <h3>Log Communication</h3>
+        <div class="grid">
+          <div><label>Dignitary</label><select id="cDignitary"></select></div>
+          <div><label>User</label><select id="cUser"></select></div>
+          <div><label>Type</label><select id="cType"><option>PHONE_CALL</option><option>WHATSAPP</option><option>EMAIL</option><option>VISIT</option><option>PDF_SENT</option><option>GIFT</option></select></div>
+          <div><label>Happened At</label><input id="cAt" type="datetime-local" /></div>
+          <div style="grid-column: span 2"><label>Notes</label><textarea id="cNotes"></textarea></div>
+        </div>
+        <div style="margin-top:10px"><button onclick="createCommunication()">Save Communication</button></div>
+      </div>
+      <div class="card">
+        <h3>Timeline</h3>
+        <table>
+          <thead><tr><th>When</th><th>Dignitary</th><th>User</th><th>Type</th><th>Notes</th></tr></thead>
+          <tbody id="comBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,2037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRASAR – Digital Outreach with a Devotional Heart</title>
+<link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --saffron:#E8820C;--saffron-light:#FFF3E0;--saffron-glow:#FF9800;
+  --navy:#1A237E;--navy-light:#283593;--navy-dark:#0D1042;
+  --gold:#C9A84C;--gold-light:#F5E6B8;
+  --cream:#FDF8F0;--white:#FFFFFF;
+  --text:#2C2C2C;--text-light:#6B6B6B;--text-muted:#9E9E9E;
+  --success:#2E7D32;--success-light:#E8F5E9;
+  --warning:#F57F17;--warning-light:#FFFDE7;
+  --danger:#C62828;--danger-light:#FFEBEE;
+  --info:#0277BD;--info-light:#E1F5FE;
+  --border:#E8E0D4;--bg-subtle:#F9F5EF;
+  --shadow:0 2px 12px rgba(26,35,126,0.08);
+  --shadow-lg:0 8px 32px rgba(26,35,126,0.12);
+  --radius:10px;--radius-lg:16px;
+  --sidebar-w:260px;--topbar-h:60px;
+}
+html{font-size:15px}
+body{font-family:'DM Sans',sans-serif;color:var(--text);background:var(--cream);min-height:100vh;overflow-x:hidden}
+h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:700;color:var(--navy)}
+.serif{font-family:'Cormorant Garamond',serif}
+
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 40%,#303F9F 100%);transition:opacity .5s,visibility .5s}
+#loginScreen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.login-bg{position:absolute;inset:0;opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5L55 30L30 55L5 30Z' fill='none' stroke='white' stroke-width='.5'/%3E%3C/svg%3E");background-size:60px}
+.login-card{position:relative;width:440px;max-width:92vw;background:var(--white);border-radius:var(--radius-lg);
+  box-shadow:0 20px 80px rgba(0,0,0,.4);overflow:hidden;animation:cardIn .6s ease}
+@keyframes cardIn{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:none}}
+.login-hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);padding:36px 32px 28px;text-align:center;position:relative;overflow:hidden}
+.login-hdr::after{content:'';position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:200px;height:40px;background:var(--white);border-radius:50%}
+.login-hdr .login-brand-logo{max-height:72px;width:auto;display:block;margin:0 auto 12px;object-fit:contain}
+.login-hdr h1{color:var(--gold);font-size:2rem;letter-spacing:3px;margin-bottom:4px}
+.login-hdr p{color:rgba(255,255,255,.7);font-size:.8rem;letter-spacing:1.5px;font-weight:300}
+.login-body{padding:36px 32px 28px}
+.login-body label{display:block;font-size:.75rem;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.login-body select,.login-body input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);
+  font-family:'DM Sans',sans-serif;font-size:.95rem;margin-bottom:18px;transition:border .2s;background:var(--white)}
+.login-body select:focus,.login-body input:focus{outline:none;border-color:var(--saffron)}
+.remember-row{display:flex;align-items:center;gap:8px;margin:-6px 0 16px}
+.remember-row input{width:auto;margin:0}
+.remember-row label{margin:0;font-size:.78rem;font-weight:500;text-transform:none;letter-spacing:.2px;color:var(--text-light)}
+.login-btn{width:100%;padding:14px;border:none;border-radius:var(--radius);cursor:pointer;font-family:'DM Sans',sans-serif;
+  font-size:1rem;font-weight:600;letter-spacing:.5px;transition:all .2s;
+  background:linear-gradient(135deg,var(--saffron) 0%,var(--saffron-glow) 100%);color:var(--white)}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(232,130,12,.4)}
+.login-ft{text-align:center;padding:0 32px 24px;font-size:.78rem;color:var(--text-muted)}
+.login-demo{background:var(--saffron-light);border-radius:8px;padding:12px;margin-top:10px;font-size:.78rem;color:var(--saffron);line-height:1.5}
+
+/* APP */
+#appShell{display:none;min-height:100vh}
+#appShell.active{display:flex}
+
+/* SIDEBAR */
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;
+  background:linear-gradient(180deg,var(--navy-dark) 0%,var(--navy) 100%);z-index:100;display:flex;flex-direction:column;transition:transform .3s}
+.sb-brand{padding:20px 22px 16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px}
+.sb-brand .logo{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.95);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.sb-brand .logo img,.sb-brand .logo svg{width:100%;height:100%;object-fit:cover;display:block}
+.sb-brand .logo img{object-fit:contain;padding:3px}
+.sb-brand .logo svg{object-fit:contain}
+.sb-brand h2{color:var(--gold);font-size:1.15rem;letter-spacing:2px;line-height:1.2}
+.sb-brand small{color:rgba(255,255,255,.45);font-size:.6rem;letter-spacing:1px;font-family:'DM Sans',sans-serif;font-weight:400}
+.sb-nav{flex:1;overflow-y:auto;padding:12px 0}
+.sb-nav::-webkit-scrollbar{width:3px}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+.nav-sec{padding:16px 22px 6px;font-size:.6rem;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.3);font-weight:600}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 22px;cursor:pointer;transition:all .15s;
+  color:rgba(255,255,255,.6);font-size:.88rem;font-weight:400;border-left:3px solid transparent;position:relative}
+.nav-item:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.85)}
+.nav-item.active{background:rgba(232,130,12,.1);color:var(--gold);border-left-color:var(--saffron);font-weight:600}
+.nav-item .ic{width:20px;text-align:center;font-size:1rem;flex-shrink:0}
+.nav-item .badge{margin-left:auto;background:var(--saffron);color:#fff;font-size:.65rem;padding:2px 7px;border-radius:10px;font-weight:600}
+.sb-user{padding:16px 22px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px}
+.sb-user .av{width:34px;height:34px;border-radius:50%;background:var(--saffron);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.8rem;flex-shrink:0}
+.sb-user .info{flex:1;min-width:0}
+.sb-user .info .nm{color:rgba(255,255,255,.85);font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-user .info .rl{color:rgba(255,255,255,.4);font-size:.68rem}
+.logout-btn{background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:5px 8px;border-radius:6px;cursor:pointer;font-size:.72rem;transition:all .15s}
+.logout-btn:hover{border-color:var(--danger);color:var(--danger)}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;
+  padding:0 28px;position:sticky;top:0;z-index:50;gap:16px}
+.topbar .bc{font-size:.82rem;color:var(--text-muted)}.topbar .bc strong{color:var(--navy);font-weight:600}
+.topbar .sbox{margin-left:auto;position:relative}
+.topbar .sbox input{padding:8px 14px 8px 36px;border:1.5px solid var(--border);border-radius:20px;font-size:.82rem;width:240px;font-family:'DM Sans',sans-serif;transition:border .2s;background:var(--bg-subtle)}
+.topbar .sbox input:focus{border-color:var(--saffron);outline:none;background:var(--white)}
+.topbar .sbox::before{content:'🔍';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.78rem}
+.search-dd{position:absolute;left:0;right:0;top:calc(100% + 8px);background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:90;max-height:260px;overflow:auto;display:none}
+.search-dd.show{display:block}
+.search-dd .it{padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:.82rem}
+.search-dd .it:last-child{border-bottom:none}
+.search-dd .it:hover{background:var(--saffron-light)}
+.tb-act{display:flex;align-items:center;gap:12px}
+.tb-act .notif{position:relative;width:36px;height:36px;border-radius:50%;background:var(--bg-subtle);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;font-size:1rem}
+.tb-act .notif:hover{background:var(--saffron-light)}
+.tb-act .notif .dot{position:absolute;top:6px;right:6px;width:8px;height:8px;background:var(--danger);border-radius:50%;border:2px solid var(--white)}
+.notif-wrap{position:relative}
+.notif-panel{position:absolute;right:0;top:calc(100% + 8px);width:320px;max-height:320px;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);display:none;z-index:95}
+.notif-panel.show{display:block}
+.notif-panel .nh{padding:10px 12px;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--text-muted);font-weight:700;letter-spacing:.8px}
+.notif-panel .ni{padding:10px 12px;border-bottom:1px solid var(--border);font-size:.82rem}
+.notif-panel .ni:last-child{border-bottom:none}
+.content{flex:1;padding:28px}
+
+/* PAGES */
+.page{display:none;animation:fadeIn .35s ease}.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* COMPONENTS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-bottom:28px}
+.stat-card{background:var(--white);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow);border:1px solid var(--border);position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.stat-card .acc{position:absolute;top:0;left:0;right:0;height:3px}
+.stat-card .ibg{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:12px}
+.stat-card .val{font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;color:var(--navy);line-height:1}
+.stat-card .lbl{font-size:.75rem;color:var(--text-muted);margin-top:4px;font-weight:500}
+.stat-card .chg{font-size:.72rem;margin-top:8px;font-weight:600;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px}
+.chg.up{background:var(--success-light);color:var(--success)}
+.card{background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden}
+.card-hd{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-hd h3{font-size:1.05rem}
+.card-bd{padding:22px}.card-bd.np{padding:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+.mb20{margin-bottom:20px}.mb28{margin-bottom:28px}
+
+table{width:100%;border-collapse:collapse}
+thead{background:var(--bg-subtle)}
+th{padding:12px 16px;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-light);font-weight:600;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;font-size:.85rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:rgba(232,130,12,.03)}
+.tag{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.7rem;font-weight:600}
+.tag-g{background:#E8EAF6;color:#1A237E}.tag-c{background:#E0F2F1;color:#00695C}.tag-a{background:#FFF3E0;color:#E65100}
+.tag-r{background:#FCE4EC;color:#880E4F}.tag-n{background:#E1F5FE;color:#01579B}
+.sd{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.sd-a{background:var(--success)}.sd-i{background:var(--text-muted)}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;border:none;cursor:pointer;transition:all .15s;text-decoration:none}
+.btn-p{background:linear-gradient(135deg,var(--navy),var(--navy-light));color:#fff}
+.btn-p:hover{box-shadow:0 4px 16px rgba(26,35,126,.3);transform:translateY(-1px)}
+.btn-s{background:linear-gradient(135deg,var(--saffron),var(--saffron-glow));color:#fff}
+.btn-s:hover{box-shadow:0 4px 16px rgba(232,130,12,.3);transform:translateY(-1px)}
+.btn-o{background:transparent;border:1.5px solid var(--border);color:var(--text)}
+.btn-o:hover{border-color:var(--navy);color:var(--navy)}
+.btn-sm{padding:6px 12px;font-size:.75rem}
+.btn-w{background:#25D366;color:#fff}.btn-w:hover{background:#1DA851}
+.bg{display:flex;gap:8px;flex-wrap:wrap}
+.bg.nw{flex-wrap:nowrap}
+
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-light)}
+.fg input,.fg select,.fg textarea{padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;transition:border .2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--saffron)}
+.fg textarea{resize:vertical;min-height:80px}
+
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:all .25s}
+.mo.show{opacity:1;visibility:visible}
+.modal{background:var(--white);border-radius:var(--radius-lg);width:640px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);transform:translateY(20px);transition:transform .25s}
+.mo.show .modal{transform:translateY(0)}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.mh h3{font-size:1.1rem}
+.mc{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);padding:4px}
+.mb{padding:24px}
+
+.tl{position:relative;padding-left:28px}
+.tl::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.tli{position:relative;margin-bottom:20px;padding-left:12px}
+.tli::before{content:'';position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--white);border:2.5px solid var(--saffron)}
+.tli.tc::before{border-color:var(--info)}.tli.te::before{border-color:var(--success)}.tli.tg::before{border-color:var(--gold)}
+.tl-d{font-size:.7rem;color:var(--text-muted);margin-bottom:2px;font-weight:500}
+.tl-t{font-size:.88rem;font-weight:600;color:var(--navy)}
+.tl-p{font-size:.8rem;color:var(--text-light);margin-top:2px}
+
+.cc{position:relative;height:280px}.cc-s{position:relative;height:220px}
+.pb{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:8px}
+.pb .fill{height:100%;border-radius:4px;transition:width .6s ease}
+
+.ec{border-left:4px solid var(--saffron);padding:16px;border-radius:0 var(--radius) var(--radius) 0;background:var(--white);box-shadow:var(--shadow);margin-bottom:14px;transition:transform .15s}
+.ec:hover{transform:translateX(4px)}
+.ec h4{font-size:1rem;margin-bottom:4px}
+.ec .meta{font-size:.78rem;color:var(--text-muted);display:flex;gap:16px;flex-wrap:wrap}
+
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.mlc{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;transition:border .15s}
+.mlc.sv{border-color:var(--success);background:var(--success-light)}
+.mlc .mi{font-size:1.6rem;margin-bottom:6px}
+.mlc .ml{font-size:.78rem;font-weight:600;color:var(--text)}
+.mlc .ms{font-size:.7rem;color:var(--text-muted);margin-top:4px}
+
+.rd{display:flex;align-items:center;gap:14px;padding:14px 18px;border:1.5px solid var(--border);border-radius:var(--radius);margin-bottom:10px;cursor:pointer;transition:all .15s}
+.rd:hover{border-color:var(--saffron);background:var(--saffron-light)}
+.rd .ri{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.rd .rf{flex:1}
+.rd .rf h4{font-size:.9rem;font-family:'DM Sans',sans-serif;font-weight:600}
+.rd .rf p{font-size:.72rem;color:var(--text-muted);margin-top:2px}
+
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:20px;gap:4px}
+.tab{padding:10px 20px;font-size:.82rem;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab:hover{color:var(--text)}.tab.active{color:var(--saffron);border-bottom-color:var(--saffron)}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:14px 24px;border-radius:var(--radius);box-shadow:var(--shadow-lg);font-size:.88rem;z-index:300;transform:translateY(100px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}.toast.ts{background:var(--success)}
+
+.pdf-pv{border:2px solid var(--border);border-radius:var(--radius-lg);padding:48px 40px;max-width:560px;margin:0 auto;
+  background:linear-gradient(180deg,#FFFDF8 0%,#FFF 100%);position:relative;box-shadow:var(--shadow-lg)}
+.pdf-pv .wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:6rem;opacity:.03;font-family:'Playfair Display',serif;color:var(--navy);pointer-events:none}
+.pdf-pv.pv-edit{outline:2px dashed rgba(232,130,12,.35);outline-offset:6px}
+.pdf-pv.pv-edit .pv-el{position:relative;cursor:move;user-select:none;touch-action:none;display:block}
+.pdf-pv.pv-edit .pv-el[contenteditable="true"]{cursor:text;user-select:text}
+.pdf-pv.pv-edit .pv-el.sel{box-shadow:0 0 0 2px rgba(232,130,12,.55),0 10px 24px rgba(26,35,126,.12);border-radius:8px}
+.pdf-pv.pv-edit .pv-el .ql{pointer-events:none}
+.pv-logo-img{max-width:120px;max-height:54px;display:block}
+.pdf-pv .plogo{text-align:center;margin-bottom:8px;font-size:2.4rem}
+.pdf-pv .porg{text-align:center;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--text-light);margin-bottom:28px}
+.pdf-pv .pto{font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--text);line-height:1.6;margin-bottom:24px}
+.pdf-pv .pinv{font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--text-light);line-height:1.7;margin-bottom:20px}
+.pdf-pv .pen{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--navy);text-align:center;margin:18px 0;padding:14px;border-top:1px solid var(--gold-light);border-bottom:1px solid var(--gold-light)}
+.pdf-pv .pdet{background:var(--bg-subtle);border-radius:10px;padding:18px;text-align:center;margin:20px 0;font-size:.88rem;line-height:2}
+.pdf-pv .pqr{text-align:right;margin-top:20px}
+.pdf-pv .qb{display:inline-flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border:1px dashed var(--border);border-radius:8px}
+.pdf-pv .qs{width:72px;height:72px;background:var(--navy);border-radius:4px;display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(6,1fr);gap:2px;padding:4px}
+.pdf-pv .qs span{background:var(--white);border-radius:1px}
+.pdf-pv .ql{font-size:.6rem;color:var(--text-muted)}
+.pdf-pv .pft{margin-top:24px;padding-top:16px;border-top:1px solid var(--border);font-size:.78rem;color:var(--text-light)}
+
+.fb{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.fb select,.fb input{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:'DM Sans',sans-serif}
+.fb select:focus,.fb input:focus{outline:none;border-color:var(--saffron)}
+
+.sf{width:280px;height:280px;margin:0 auto;border:3px solid var(--navy);border-radius:var(--radius-lg);position:relative;overflow:hidden;background:#000}
+.sl{position:absolute;left:0;right:0;height:2px;background:var(--saffron);box-shadow:0 0 12px var(--saffron-glow);animation:scanM 2s ease-in-out infinite}
+@keyframes scanM{0%,100%{top:10%}50%{top:90%}}
+.scn{position:absolute;inset:12px}
+.scn::before,.scn::after{content:'';position:absolute;width:30px;height:30px;border-color:var(--saffron);border-style:solid}
+.scn::before{top:0;left:0;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+.scn::after{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+
+.rtab{display:none}.rtab.active{display:block}
+
+.about-hero{position:relative;overflow:hidden;border-radius:var(--radius-lg);padding:34px;background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 50%,#3343B5 100%);color:#fff;box-shadow:var(--shadow-lg);margin-bottom:24px}
+.about-hero::after{content:'';position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,var(--saffron-light),transparent 65%);opacity:.25}
+.about-hero h2{color:var(--gold);font-size:2rem;letter-spacing:2px}
+.about-hero .st{font-family:'Cormorant Garamond',serif;font-size:1.25rem;color:rgba(255,255,255,.9);margin-top:6px}
+.about-hero .tg{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.about-hero .tg span{font-size:.73rem;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08)}
+.about-lead{margin-top:18px;max-width:760px;font-size:.92rem;line-height:1.7;color:rgba(255,255,255,.92)}
+.name-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.name-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.name-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--saffron),var(--gold))}
+.name-card .ltr{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--navy);line-height:1}
+.name-card .ttl{font-size:1rem;color:var(--navy);margin-top:4px}
+.name-card .sub{font-size:.78rem;color:var(--saffron);font-weight:600;margin:6px 0 10px}
+.name-card .txt{font-size:.84rem;color:var(--text-light);line-height:1.65}
+.about-closing{margin-top:18px;background:linear-gradient(180deg,#FFFDF8 0%,#FFF 100%);border:1.5px solid var(--gold-light);border-radius:var(--radius-lg);padding:24px;text-align:center}
+.about-closing h3{font-size:1.25rem;color:var(--navy)}
+.about-closing p{margin-top:8px;font-size:.9rem;color:var(--text-light);line-height:1.75;max-width:850px;margin-left:auto;margin-right:auto}
+
+/* UI POLISH */
+body::before{content:'';position:fixed;right:-120px;top:-80px;width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle,rgba(201,168,76,.16),transparent 70%);z-index:0;pointer-events:none;animation:orbF 10s ease-in-out infinite}
+body::after{content:'';position:fixed;left:-150px;bottom:-120px;width:360px;height:360px;border-radius:50%;
+  background:radial-gradient(circle,rgba(26,35,126,.13),transparent 70%);z-index:0;pointer-events:none;animation:orbF 12s ease-in-out infinite reverse}
+@keyframes orbF{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+#appShell,.main,.content{position:relative;z-index:1}
+.topbar{backdrop-filter:blur(8px);background:rgba(255,255,255,.92)}
+.nav-item{border-radius:0 14px 14px 0;margin:1px 10px 1px 0}
+.nav-item.active{box-shadow:inset 0 0 0 1px rgba(232,130,12,.25)}
+.card,.stat-card,.ec,.name-card{transition:transform .25s,box-shadow .25s,border-color .2s}
+.card:hover,.stat-card:hover,.name-card:hover{transform:translateY(-3px)}
+.btn{position:relative;overflow:hidden}
+.btn::after{content:'';position:absolute;left:-120%;top:0;width:90%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.32),transparent);transform:skewX(-20deg);transition:left .45s}
+.btn:hover::after{left:140%}
+.btn:focus-visible,.nav-item:focus-visible,.tab:focus-visible,.logout-btn:focus-visible,
+.fg input:focus-visible,.fg select:focus-visible,.fg textarea:focus-visible,.topbar .sbox input:focus-visible{
+  outline:2px solid var(--saffron);outline-offset:2px
+}
+.topbar .notif{animation:softPulse 2.6s ease-in-out infinite}
+@keyframes softPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.reveal{opacity:0;transform:translateY(14px) scale(.99)}
+.reveal.on{opacity:1;transform:none;transition:opacity .45s ease,transform .45s ease}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px 20px;border:1.5px dashed var(--border);border-radius:14px;background:linear-gradient(180deg,#FFFDF8 0%,#FFF 100%)}
+.empty-state .esi{font-size:2rem;margin-bottom:8px}
+.empty-state .est{font-family:'Playfair Display',serif;color:var(--navy);font-size:1.05rem}
+.empty-state .esp{font-size:.83rem;color:var(--text-muted);max-width:460px;line-height:1.6;margin:8px auto 14px}
+.role-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.rq{background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:14px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s}
+.rq:hover{border-color:var(--saffron);transform:translateY(-2px)}
+.rq .i{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--bg-subtle)}
+.rq .t{font-size:.82rem;font-weight:600;color:var(--navy)}
+.field-error{font-size:.72rem;color:var(--danger);margin-top:4px}
+.in-err{border-color:var(--danger)!important;background:var(--danger-light)!important}
+.skeleton{position:relative;overflow:hidden;background:linear-gradient(90deg,#f2eee8 0%,#fbf8f2 50%,#f2eee8 100%);background-size:220% 100%;animation:shimmer 1.2s linear infinite}
+@keyframes shimmer{0%{background-position:220% 0}100%{background-position:-20% 0}}
+body.admin-mode .sb-user .av{background:linear-gradient(135deg,var(--saffron),var(--gold))}
+body.admin-mode .sb-user .rl::after{content:' • Full Access';color:var(--gold)}
+body.karyakar-mode .sb-user .av{background:linear-gradient(135deg,var(--info),var(--success))}
+body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8A2}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+}
+
+@media(max-width:900px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.g2,.g3,.fr{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.name-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.stats-grid{grid-template-columns:1fr}.content{padding:16px}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+<div class="login-bg"></div>
+<div class="login-card">
+<div class="login-hdr"><img class="login-brand-logo" src="/local-app/Logo%201.png" width="120" height="72" alt="PRASAR logo"><h1>PRASAR</h1><p>DIGITAL OUTREACH WITH A DEVOTIONAL HEART</p></div>
+<div class="login-body">
+  <label>Select Role</label>
+  <select id="loginRole"><option value="admin">🛡️ Administrator</option><option value="karyakar">🙏 PR Karyakar</option></select>
+  <label>Username</label><input type="text" id="loginUser" autocomplete="off">
+  <label>Password</label><input type="password" id="loginPass" autocomplete="new-password">
+  <div class="remember-row"><input type="checkbox" id="rememberMe" checked><label for="rememberMe">Remember me</label></div>
+  <button class="login-btn" onclick="doLogin()">Enter PRASAR →</button>
+</div>
+<div class="login-ft">BAPS Swaminarayan Sanstha · Africa Region · v1.0</div>
+</div>
+</div>
+
+<!-- APP -->
+<div id="appShell">
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+<div class="sb-brand"><div class="logo"><img src="/local-app/Logo%201.png" width="44" height="44" alt="PRASAR logo"></div><div><h2>PRASAR</h2><small>BAPS AFRICA</small></div></div>
+<div class="sb-nav">
+  <div class="nav-sec">Main</div>
+  <div class="nav-item active" data-page="dashboard"><span class="ic">📊</span> Dashboard</div>
+  <div class="nav-item" data-page="about"><span class="ic">✨</span> About PRASAR</div>
+  <div class="nav-item" data-page="dignitaries"><span class="ic">👤</span> Dignitaries <span class="badge" id="digNavCount">0</span></div>
+  <div class="nav-item" data-page="events"><span class="ic">📅</span> Events</div>
+  <div class="nav-item" data-page="invitations"><span class="ic">✉️</span> Invitations</div>
+  <div class="nav-sec">Engagement</div>
+  <div class="nav-item" data-page="communications"><span class="ic">💬</span> Communications</div>
+  <div class="nav-item" data-page="attendance"><span class="ic">📱</span> QR Attendance</div>
+  <div class="nav-item" data-page="hospitality"><span class="ic">🍽️</span> Hospitality</div>
+  <div class="nav-sec">Analytics</div>
+  <div class="nav-item" data-page="reports"><span class="ic">📈</span> Reports</div>
+  <div class="nav-item" data-page="donations"><span class="ic">🎁</span> Donations</div>
+  <div class="nav-sec admin-only" id="adminSec">Administration</div>
+  <div class="nav-item admin-only" data-page="settings"><span class="ic">⚙️</span> Settings</div>
+  <div class="nav-item admin-only" data-page="users"><span class="ic">🔑</span> User Mgmt</div>
+</div>
+<div class="sb-user">
+  <div class="av" id="uAv">A</div>
+  <div class="info"><div class="nm" id="uNm">Admin</div><div class="rl" id="uRl">Administrator</div></div>
+  <button class="logout-btn" onclick="doLogout()">Exit</button>
+</div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+<div class="topbar">
+  <button class="btn btn-sm btn-o" style="display:none" id="menuTog" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+  <div class="bc">PRASAR / <strong id="bcPage">Dashboard</strong></div>
+  <div class="sbox"><input type="text" placeholder="Search dignitaries, events…" id="gSearch"><div class="search-dd" id="gSearchDd"></div></div>
+  <div class="tb-act"><div class="notif-wrap"><div class="notif" id="notifBell" onclick="toggleNotifications()">🔔<span class="dot" id="notifDot"></span></div><div class="notif-panel" id="notifPanel"></div></div></div>
+</div>
+<div class="content">
+
+<!-- ══ DASHBOARD ══ -->
+<div class="page active" id="page-dashboard">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div><h2 style="font-size:1.6rem">Dashboard</h2><p style="font-size:.85rem;color:var(--text-muted);margin-top:4px" class="serif"><em>Jai Swaminarayan — Live overview of PRASAR operations</em></p></div>
+  <div class="bg"><button class="btn btn-o btn-sm" onclick="openM('export')">📥 Export</button><button class="btn btn-s btn-sm" onclick="nav('invitations')">✉️ New Invitation</button></div>
+</div>
+<div class="role-quick" id="roleQuick">
+  <div class="rq admin-act" onclick="openM('addEvt')"><div class="i">📅</div><div class="t">Create Event</div></div>
+  <div class="rq admin-act" onclick="nav('users')"><div class="i">🔑</div><div class="t">Manage Users</div></div>
+  <div class="rq karyakar-act" onclick="openM('logInt')"><div class="i">💬</div><div class="t">Log Interaction</div></div>
+  <div class="rq karyakar-act" onclick="nav('invitations')"><div class="i">✉️</div><div class="t">Send Invitation</div></div>
+</div>
+<div class="stats-grid">
+  <div class="stat-card"><div class="acc" style="background:var(--navy)"></div><div class="ibg" style="background:var(--info-light);color:var(--info)">👤</div><div class="val">—</div><div class="lbl">Total Dignitaries</div><span class="chg up">No data</span></div>
+  <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="ibg" style="background:var(--success-light);color:var(--success)">📅</div><div class="val">—</div><div class="lbl">Active Events</div><span class="chg up">No data</span></div>
+  <div class="stat-card"><div class="acc" style="background:var(--saffron)"></div><div class="ibg" style="background:var(--saffron-light);color:var(--saffron)">✉️</div><div class="val">—</div><div class="lbl">Invitations Sent</div><span class="chg up">No data</span></div>
+  <div class="stat-card"><div class="acc" style="background:var(--gold)"></div><div class="ibg" style="background:var(--gold-light);color:var(--gold)">🎁</div><div class="val">—</div><div class="lbl">Contributions</div><span class="chg up">No data</span></div>
+</div>
+<div class="g2 mb28">
+  <div class="card"><div class="card-hd"><h3>Attendance Trend</h3><button class="btn btn-sm btn-o" onclick="openM('attFilter')">Last 6 Events</button></div><div class="card-bd"><div class="cc"><canvas id="cAtt"></canvas></div></div></div>
+  <div class="card"><div class="card-hd"><h3>Dignitary Categories</h3></div><div class="card-bd"><div class="cc"><canvas id="cCat"></canvas></div></div></div>
+</div>
+<div class="g2 mb28">
+  <div class="card"><div class="card-hd"><h3>Communication Channels</h3></div><div class="card-bd"><div class="cc-s"><canvas id="cChn"></canvas></div></div></div>
+  <div class="card"><div class="card-hd"><h3>Regional Distribution</h3></div><div class="card-bd"><div class="cc-s"><canvas id="cReg"></canvas></div></div></div>
+</div>
+<div class="g2">
+  <div class="card"><div class="card-hd"><h3>Upcoming Events</h3><button class="btn btn-sm btn-o" onclick="nav('events')">View All</button></div>
+    <div class="card-bd np"><table><thead><tr><th>Event</th><th>Date</th><th>Invited</th><th>Status</th></tr></thead><tbody id="dashUpcomingBody">
+      <tr><td colspan="4" style="font-size:.85rem;color:var(--text-muted);padding:16px">No events configured yet.</td></tr>
+    </tbody></table></div></div>
+  <div class="card"><div class="card-hd"><h3>Recent Activity</h3></div>
+    <div class="card-bd"><div class="tl" id="dashRecentTl">
+      <div class="tli"><div class="tl-d">—</div><div class="tl-t">No activity logged yet.</div><div class="tl-p">New communications will appear here once recorded.</div></div>
+    </div></div></div>
+</div>
+</div>
+
+<!-- ══ ABOUT PRASAR ══ -->
+<div class="page" id="page-about">
+  <div class="about-hero">
+    <h2>PRASAR</h2>
+    <div class="st">Digital Outreach with a Devotional Heart</div>
+    <div class="tg">
+      <span>Personalized</span><span>Reliable</span><span>Authentic</span><span>Seamless</span><span>Accessible</span><span>Radiant</span>
+    </div>
+    <p class="about-lead">Connecting the Global Satsang through Divine Communication for PR. PRASAR is designed to serve dignified, timely, and heartfelt communication workflows for Karyakars and administrators across regions.</p>
+  </div>
+
+  <div class="name-grid">
+    <div class="name-card"><div class="ltr">P — Personalized</div><h3 class="ttl">The touch of individual care in every message.</h3><div class="sub">Every interaction is unique.</div><p class="txt">PRASAR automates high-quality, formatted invitation workflows that address every recipient by name. The result feels like a personal invitation from the Sanstha, not a generic broadcast.</p></div>
+    <div class="name-card"><div class="ltr">R — Reliable</div><h3 class="ttl">Dependable delivery for every Utsav and update.</h3><div class="sub">Timing with consistency.</div><p class="txt">For last-minute Sabha updates or large festival outreach, PRASAR supports dependable dispatch via Email and WhatsApp with operational consistency across Africa and beyond.</p></div>
+    <div class="name-card"><div class="ltr">A — Authentic</div><h3 class="ttl">The official voice of the Sanstha.</h3><div class="sub">Single source of truth.</div><p class="txt">Every communication carries official BAPS branding and standardized templates, helping recipients trust that information is verified, accurate, and aligned with the Sanstha's identity.</p></div>
+    <div class="name-card"><div class="ltr">S — Seamless</div><h3 class="ttl">Technology that works in the background.</h3><div class="sub">Focus on Seva, not tools.</div><p class="txt">PDF generation, contact handling, event-linked invitation flows, and communication records are unified into one smooth experience so Karyakars can execute PR tasks in a few guided steps.</p></div>
+    <div class="name-card"><div class="ltr">A — Accessible</div><h3 class="ttl">Bridging generations and geography.</h3><div class="sub">Built for everyone.</div><p class="txt">From elders to youth, PRASAR is designed to be simple and mobile-friendly, ensuring updates and invitations are accessible to every outreach contact regardless of location or device.</p></div>
+    <div class="name-card"><div class="ltr">R — Radiant</div><h3 class="ttl">Spreading the light of Satsang to every corner.</h3><div class="sub">Communication with spiritual purpose.</div><p class="txt">True to its name, PRASAR exists to spread the glory of Akshar-Purushottam Maharaj and the Satpurush, making each communication a reflection of peace, beauty, and wisdom.</p></div>
+  </div>
+
+  <div class="about-closing">
+    <h3>One Platform, One Devotional Standard</h3>
+    <p>PRASAR unites personalization, trust, and operational excellence so every invitation, update, and follow-up remains spiritually aligned and professionally delivered. It is not only a communication system — it is an extension of Seva in the digital era.</p>
+  </div>
+</div>
+
+<!-- ══ DIGNITARIES ══ -->
+<div class="page" id="page-dignitaries">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <h2>Dignitaries</h2>
+  <div class="bg"><button class="btn btn-o btn-sm admin-only" onclick="openM('importDig')">📤 Import Excel</button><button class="btn btn-s btn-sm" onclick="openM('addDig')">+ Add Dignitary</button></div>
+</div>
+<div class="fb">
+  <select id="fCat"><option value="">All Categories</option><option>Government</option><option>Corporate</option><option>Academic</option><option>Religious</option><option>NGO</option></select>
+  <select id="fSt"><option value="">All Status</option><option>Active</option><option>Inactive</option></select>
+  <select id="digKarFilter"><option value="">All Karyakars</option></select>
+  <input type="text" placeholder="Search name…" id="dSearch" oninput="filterDig()">
+</div>
+<div class="card"><div class="card-bd np"><div style="overflow-x:auto">
+  <table id="dTbl"><thead><tr><th>Name</th><th>Designation</th><th>Organization</th><th>Category</th><th>Karyakar</th><th>Last Contact</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dBody"></tbody></table>
+</div></div></div>
+</div>
+
+<!-- ══ EVENTS ══ -->
+<div class="page" id="page-events">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Events</h2><button class="btn btn-s btn-sm" onclick="openM('addEvt')">+ Create Event</button></div>
+<div class="tabs" id="eTabs"><div class="tab active" data-tab="up">Upcoming</div><div class="tab" data-tab="past">Past Events</div><div class="tab" data-tab="dr">Drafts</div></div>
+<div id="eList">
+  <div class="empty-state" id="eventsEmpty">
+    <div class="esi">📅</div>
+    <div class="est">No events created yet</div>
+    <div class="esp">Start with your first event and build invitation, attendance, hospitality, and reporting workflows around it.</div>
+    <div class="bg"><button class="btn btn-sm btn-p" onclick="openM('addEvt')">+ Create Event</button><button class="btn btn-sm btn-o" onclick="nav('invitations')">Go to Invitations</button></div>
+  </div>
+  <div id="eventsDynWrap" style="display:none"></div>
+</div>
+</div>
+
+<!-- ══ INVITATIONS ══ -->
+<div class="page" id="page-invitations">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Invitation Generator</h2><button class="btn btn-o btn-sm" onclick="openM('bulkInv')">📋 Bulk Generate</button></div>
+<div class="g2">
+<div><div class="card mb20"><div class="card-hd"><h3>Configure Invitation</h3></div><div class="card-bd">
+  <div class="fg" style="margin-bottom:14px"><label>Select Event</label><select id="invE"><option value="">No sample events configured</option></select></div>
+  <div class="fg" style="margin-bottom:14px"><label>Select Dignitary</label><select id="invD" onchange="updPDF()"><option value="">No sample dignitaries configured</option></select></div>
+  <div class="fg" style="margin-bottom:14px"><label>Custom Message</label><textarea placeholder="Add a personal note…"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="generateInvitationPdf()">🖨️ Generate PDF</button><button class="btn btn-w" onclick="toast('WhatsApp opened!','ts')">💬 WhatsApp</button><button class="btn btn-o" onclick="openM('sendEmail')">📧 Email</button></div>
+</div></div></div>
+<div><div class="card"><div class="card-hd"><h3>PDF Preview</h3>
+  <div class="bg admin-only" style="gap:6px">
+    <button class="btn btn-sm btn-o" id="pvEditBtn" onclick="togglePdfEdit()">✏️ Edit Template</button>
+    <button class="btn btn-sm btn-o" onclick="triggerLogoUpload()">🖼️ Logo</button>
+    <button class="btn btn-sm btn-p" onclick="savePdfTemplate()">Save</button>
+    <button class="btn btn-sm btn-o" onclick="resetPdfTemplate()">Reset</button>
+    <input type="file" id="pvLogoFile" accept="image/*" style="display:none">
+  </div>
+</div><div class="card-bd">
+  <div class="pdf-pv" id="pdfPv">
+    <div class="wm" id="pvWm">ॐ</div><div class="plogo" id="pvLogo">🙏</div><div class="porg" id="pvOrg">BAPS Swaminarayan Sanstha · Africa</div>
+    <div class="pto" id="pTo">To,<br><strong>[Dignitary Name]</strong><br>[Designation]<br>[Organization]</div>
+    <div class="pinv" id="pvInvLine">The BAPS Swaminarayan Sanstha cordially invites you to grace the occasion of…</div>
+    <div class="pen" id="pvEventName">[Event Name]</div>
+    <div class="pdet" id="pvEventMeta"><strong>📅</strong> [Event Date]<br><strong>🕐</strong> [Time]<br><strong>📍</strong> [Venue]</div>
+    <div class="pqr" id="pvQr"><div class="qb"><div class="qs"><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span></div><div class="ql">VIP Check-In QR</div></div></div>
+    <div class="pft" id="pvFooter"><strong>Your Host:</strong> [Host Name]<br>📞 [Phone] · ✉️ [Email]</div>
+  </div>
+</div></div></div>
+</div>
+</div>
+
+<!-- ══ COMMUNICATIONS ══ -->
+<div class="page" id="page-communications">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Communication Timeline</h2><button class="btn btn-s btn-sm" onclick="openM('logInt')">+ Log Interaction</button></div>
+<div class="fb">
+  <select><option value="">All Types</option><option>Phone Call</option><option>WhatsApp</option><option>Email</option><option>Visit</option></select>
+  <select id="comKarFilter"><option value="">All Karyakars</option></select>
+  <input type="date"><span style="font-size:.82rem;color:var(--text-muted)" id="comCountLbl">0 interactions</span>
+</div>
+<div class="card"><div class="card-bd">
+  <div class="empty-state" id="comEmpty">
+    <div class="esi">💬</div>
+    <div class="est">No communications logged yet</div>
+    <div class="esp">Phone calls, WhatsApp updates, emails, visits, and gifts will appear here in a chronological timeline.</div>
+    <div class="bg"><button class="btn btn-sm btn-s" onclick="openM('logInt')">+ Log Interaction</button></div>
+  </div>
+  <div class="tl" id="comTimeline" style="display:none"></div>
+</div></div>
+</div>
+
+<!-- ══ QR ATTENDANCE ══ -->
+<div class="page" id="page-attendance">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>QR Code Attendance</h2>
+  <select class="btn btn-o btn-sm" style="padding:8px 14px"><option>No event selected</option></select></div>
+<div class="g2 mb28">
+  <div class="card" style="text-align:center"><div class="card-hd"><h3>Gate Scanner</h3></div><div class="card-bd">
+    <div class="sf"><div class="sl"></div><div class="scn"></div></div>
+    <p style="margin-top:16px;font-size:.85rem;color:var(--text-muted)">Point camera at guest's QR code</p>
+    <button class="btn btn-s" style="margin-top:12px" onclick="simScan()">📱 Simulate Scan</button>
+  </div></div>
+  <div class="card"><div class="card-hd"><h3>Live Arrivals</h3><span style="font-size:.82rem;color:var(--success);font-weight:600" id="arrCt">0 / 0</span></div><div class="card-bd">
+    <div class="pb" style="margin-bottom:20px;height:12px"><div class="fill" style="width:0%;background:linear-gradient(90deg,var(--success),#66BB6A)"></div></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Guest</th><th>Time</th><th>Protocol</th></tr></thead><tbody id="arrTbl">
+      <tr><td colspan="3" style="font-size:.85rem;color:var(--text-muted);padding:16px">No arrivals scanned yet.</td></tr>
+    </tbody></table></div>
+  </div></div>
+</div>
+<div class="card"><div class="card-hd"><h3>Protocol Briefing (Auto-generated)</h3></div><div class="card-bd">
+  <div style="background:var(--saffron-light);border-radius:var(--radius);padding:20px;display:flex;gap:20px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px"><h4 style="font-size:1rem;margin-bottom:8px">No guest selected</h4><p style="font-size:.82rem;color:var(--text-light)">Protocol details will appear here once guests arrive.</p></div>
+  </div>
+</div></div>
+</div>
+
+<!-- ══ HOSPITALITY ══ -->
+<div class="page" id="page-hospitality">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Hospitality Tracker</h2>
+  <select class="btn btn-o btn-sm" style="padding:8px 14px"><option>No event selected</option></select></div>
+<div class="stats-grid mb28">
+  <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="val">—</div><div class="lbl">Meals Served</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--warning)"></div><div class="val">—</div><div class="lbl">Special Dietary</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--gold)"></div><div class="val">—</div><div class="lbl">Mementos Given</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--info)"></div><div class="val">—</div><div class="lbl">VIP Parking</div></div>
+</div>
+<div class="g2 mb28">
+  <div class="card"><div class="card-hd"><h3>Meal Tracking — Day 1</h3></div><div class="card-bd"><div class="mg">
+    <div class="mlc sv"><div class="mi">☀️</div><div class="ml">Breakfast</div><div class="ms">82 served</div></div>
+    <div class="mlc sv"><div class="mi">🌤️</div><div class="ml">Lunch</div><div class="ms">124 served</div></div>
+    <div class="mlc"><div class="mi">🌅</div><div class="ml">Hi-Tea</div><div class="ms">In progress…</div></div>
+    <div class="mlc"><div class="mi">🌙</div><div class="ml">Dinner</div><div class="ms">Scheduled 7 PM</div></div>
+  </div></div></div>
+  <div class="card"><div class="card-hd"><h3>Dietary Requirements</h3></div><div class="card-bd"><div class="cc-s"><canvas id="cDiet"></canvas></div></div></div>
+</div>
+<div class="card"><div class="card-hd"><h3>Gift & Memento Log</h3><button class="btn btn-sm btn-s" onclick="openM('logGift')">+ Log Gift</button></div>
+<div class="card-bd np"><table><thead><tr><th>Dignitary</th><th>Gift</th><th>Event</th><th>Date</th><th>Notes</th></tr></thead><tbody>
+  <tr><td colspan="5" style="font-size:.85rem;color:var(--text-muted);padding:16px">No gifts or mementos logged yet.</td></tr>
+</tbody></table></div></div>
+</div>
+
+<!-- ══ REPORTS ══ -->
+<div class="page" id="page-reports">
+<div style="margin-bottom:24px"><h2>Reports & Analytics</h2><p style="font-size:.85rem;color:var(--text-muted);margin-top:4px">Comprehensive data insights across all PRASAR modules</p></div>
+<div class="tabs" id="rTabs">
+  <div class="tab active" data-rt="ov">Overview</div>
+  <div class="tab" data-rt="ep">Event Performance</div>
+  <div class="tab" data-rt="en">Engagement</div>
+  <div class="tab" data-rt="ka">Karyakar Activity</div>
+  <div class="tab" data-rt="dl">Export Center</div>
+</div>
+
+<div class="rtab active" id="rt-ov">
+<div class="stats-grid mb28">
+  <div class="stat-card"><div class="acc" style="background:var(--navy)"></div><div class="val">—</div><div class="lbl">Total Dignitaries</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="val">—</div><div class="lbl">Avg Attendance Rate</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--saffron)"></div><div class="val">—</div><div class="lbl">Total Communications</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--gold)"></div><div class="val">—</div><div class="lbl">Avg Sentiment</div></div>
+</div>
+<div class="g2 mb28">
+  <div class="card"><div class="card-hd"><h3>Monthly Outreach Volume</h3></div><div class="card-bd"><div class="cc"><canvas id="cMon"></canvas></div></div></div>
+  <div class="card"><div class="card-hd"><h3>Dignitary Growth</h3></div><div class="card-bd"><div class="cc"><canvas id="cGro"></canvas></div></div></div>
+</div>
+<div class="card"><div class="card-hd"><h3>Top Engaged Dignitaries</h3></div><div class="card-bd np"><table><thead><tr><th>#</th><th>Dignitary</th><th>Events</th><th>Interactions</th><th>Sentiment</th><th>Last Active</th></tr></thead><tbody id="topEngagedBody">
+  <tr><td colspan="6" style="font-size:.85rem;color:var(--text-muted);padding:16px">No engagement data available yet.</td></tr>
+</tbody></table></div></div>
+</div>
+
+<div class="rtab" id="rt-ep">
+<div class="g2 mb28">
+  <div class="card"><div class="card-hd"><h3>Attendance vs Invited</h3></div><div class="card-bd"><div class="cc"><canvas id="cEP"></canvas></div></div></div>
+  <div class="card"><div class="card-hd"><h3>Category by Event</h3></div><div class="card-bd"><div class="cc"><canvas id="cEC"></canvas></div></div></div>
+</div>
+<div class="card"><div class="card-hd"><h3>Event Comparison</h3></div><div class="card-bd np"><table><thead><tr><th>Event</th><th>Date</th><th>Invited</th><th>Attended</th><th>Rate</th><th>Meals</th><th>Gifts</th><th>Score</th></tr></thead><tbody>
+  <tr><td colspan="8" style="font-size:.85rem;color:var(--text-muted);padding:16px">No historical event data available yet.</td></tr>
+</tbody></table></div></div>
+</div>
+
+<div class="rtab" id="rt-en">
+<div class="g2 mb28">
+  <div class="card"><div class="card-hd"><h3>Communication Type Breakdown</h3></div><div class="card-bd"><div class="cc"><canvas id="cCT"></canvas></div></div></div>
+  <div class="card"><div class="card-hd"><h3>Response Rate by Channel</h3></div><div class="card-bd"><div class="cc"><canvas id="cRR"></canvas></div></div></div>
+</div>
+<div class="card"><div class="card-hd"><h3>Sentiment Analysis</h3></div><div class="card-bd"><div class="g3">
+  <div style="text-align:center;padding:20px"><div style="font-size:2.5rem">😊</div><div style="font-size:2rem;font-weight:700;color:var(--success);font-family:'Playfair Display',serif">—</div><div style="font-size:.82rem;color:var(--text-muted)">Highly Positive</div></div>
+  <div style="text-align:center;padding:20px"><div style="font-size:2.5rem">😐</div><div style="font-size:2rem;font-weight:700;color:var(--warning);font-family:'Playfair Display',serif">—</div><div style="font-size:.82rem;color:var(--text-muted)">Neutral</div></div>
+  <div style="text-align:center;padding:20px"><div style="font-size:2.5rem">😟</div><div style="font-size:2rem;font-weight:700;color:var(--danger);font-family:'Playfair Display',serif">—</div><div style="font-size:.82rem;color:var(--text-muted)">Needs Attention</div></div>
+</div></div></div>
+</div>
+
+<div class="rtab" id="rt-ka">
+<div class="card mb28"><div class="card-hd"><h3>Karyakar Performance</h3></div><div class="card-bd np"><table><thead><tr><th>Karyakar</th><th>Assigned</th><th>Calls</th><th>WhatsApp</th><th>Visits</th><th>Invites</th><th>Pending</th><th>Grade</th></tr></thead><tbody id="karPerfBody">
+  <tr><td colspan="8" style="font-size:.85rem;color:var(--text-muted);padding:16px">No karyakar performance data available yet.</td></tr>
+</tbody></table></div></div>
+<div class="card"><div class="card-hd"><h3>Activity by Karyakar</h3></div><div class="card-bd"><div class="cc"><canvas id="cKar"></canvas></div></div></div>
+</div>
+
+<div class="rtab" id="rt-dl">
+<div class="card"><div class="card-hd"><h3>Export Reports</h3></div><div class="card-bd">
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--info-light);color:var(--info)">📋</div><div class="rf"><h4>Dignitary Master List</h4><p>Complete database with contacts and tags</p></div><span style="font-size:.75rem;color:var(--text-muted)">XLSX</span></div>
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--success-light);color:var(--success)">📊</div><div class="rf"><h4>Event Attendance Report</h4><p>Rates, no-shows, check-in times</p></div><span style="font-size:.75rem;color:var(--text-muted)">PDF</span></div>
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--saffron-light);color:var(--saffron)">💬</div><div class="rf"><h4>Communication History</h4><p>All calls, messages, visits with notes</p></div><span style="font-size:.75rem;color:var(--text-muted)">XLSX</span></div>
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--gold-light);color:var(--gold)">🍽️</div><div class="rf"><h4>Hospitality & Gifts Report</h4><p>Meals, dietary tracking, mementos</p></div><span style="font-size:.75rem;color:var(--text-muted)">PDF</span></div>
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--danger-light);color:var(--danger)">🎁</div><div class="rf"><h4>Donation Summary</h4><p>Contributions, receipts, projects</p></div><span style="font-size:.75rem;color:var(--text-muted)">PDF</span></div>
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--navy);color:#fff">👤</div><div class="rf"><h4>Karyakar Performance</h4><p>Activity scores, follow-up compliance</p></div><span style="font-size:.75rem;color:var(--text-muted)">PDF</span></div>
+</div></div>
+</div>
+</div>
+
+<!-- ══ DONATIONS ══ -->
+<div class="page" id="page-donations">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Donations & Contributions</h2><button class="btn btn-s btn-sm" onclick="openM('addDon')">+ Record Donation</button></div>
+<div class="stats-grid mb28">
+  <div class="stat-card"><div class="acc" style="background:var(--gold)"></div><div class="val">—</div><div class="lbl">Total This Year</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--navy)"></div><div class="val">—</div><div class="lbl">Unique Donors</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--saffron)"></div><div class="val">—</div><div class="lbl">Avg Donation</div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="val">—</div><div class="lbl">Recurring Donors</div></div>
+</div>
+<div class="g2 mb28">
+  <div class="card"><div class="card-hd"><h3>By Project</h3></div><div class="card-bd"><div class="cc-s"><canvas id="cDon"></canvas></div></div></div>
+  <div class="card"><div class="card-hd"><h3>Monthly Trend</h3></div><div class="card-bd"><div class="cc-s"><canvas id="cDT"></canvas></div></div></div>
+</div>
+<div class="card"><div class="card-hd"><h3>Recent Contributions</h3></div><div class="card-bd np"><table><thead><tr><th>Date</th><th>Donor</th><th>Amount</th><th>Project</th><th>Receipt</th><th>Status</th></tr></thead><tbody>
+  <tr><td colspan="6" style="font-size:.85rem;color:var(--text-muted);padding:16px">No contributions recorded yet.</td></tr>
+</tbody></table></div></div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div class="page" id="page-settings">
+<h2 style="margin-bottom:24px">System Settings</h2>
+<div class="g2">
+  <div class="card"><div class="card-hd"><h3>Organization Profile</h3></div><div class="card-bd">
+    <div class="fg" style="margin-bottom:14px"><label>Organization</label><input value="BAPS Swaminarayan Sanstha — Africa"></div>
+    <div class="fg" style="margin-bottom:14px"><label>Region</label><select><option>Africa</option><option>Europe</option><option>North America</option></select></div>
+    <div class="fg" style="margin-bottom:14px"><label>Contact Email</label><input value="pr@bapsafrica.org"></div>
+    <div class="fg" style="margin-bottom:14px"><label>Default Venue</label><input value="BAPS Shri Swaminarayan Mandir, Nairobi"></div>
+    <button class="btn btn-p" onclick="toast('Settings saved','ts')">Save Changes</button>
+  </div></div>
+  <div class="card"><div class="card-hd"><h3>Notifications</h3></div><div class="card-bd">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:.88rem">Email for new RSVPs</span><input type="checkbox" checked></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:.88rem">WhatsApp VIP arrival alerts</span><input type="checkbox" checked></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:.88rem">Birthday reminders</span><input type="checkbox" checked></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:.88rem">Follow-up task reminders</span><input type="checkbox" checked></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0"><span style="font-size:.88rem">Weekly digest</span><input type="checkbox"></div>
+  </div></div>
+</div>
+</div>
+
+<!-- ══ USERS ══ -->
+<div class="page" id="page-users">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>User Management</h2><button class="btn btn-s btn-sm" onclick="openM('addKar')">+ Add Karyakar</button></div>
+<div class="card"><div class="card-bd">
+  <div class="empty-state" id="usersEmpty">
+    <div class="esi">🔑</div>
+    <div class="est">No users configured yet</div>
+    <div class="esp">Create karyakar accounts to delegate outreach work and manage access by role.</div>
+    <div class="bg"><button class="btn btn-sm btn-s" onclick="openM('addKar')">+ Add Karyakar</button></div>
+  </div>
+  <div style="overflow-x:auto;display:none" id="usersTblWrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Assigned</th><th>Status</th><th>Actions</th></tr></thead><tbody id="usersBody"></tbody></table></div>
+</div></div>
+</div>
+
+</div></div></div>
+
+<!-- MODALS -->
+<div class="mo" id="m-addDig"><div class="modal"><div class="mh"><h3>Add New Dignitary</h3><button class="mc" onclick="closeM('addDig')">✕</button></div><div class="mb">
+  <div class="fr"><div class="fg"><label>Salutation</label><select><option>Hon.</option><option>Dr.</option><option>Mr.</option><option>Ms.</option><option>Sheikh</option><option>Prof.</option></select></div><div class="fg"><label>Post-Nominals</label><input placeholder="PhD, MP, MBE…"></div></div>
+  <div class="fr"><div class="fg"><label>First Name *</label><input id="digFn" data-req="true"></div><div class="fg"><label>Last Name *</label><input id="digLn" data-req="true"></div></div>
+  <div class="fr"><div class="fg"><label>Designation</label><input id="digDes"></div><div class="fg"><label>Organization</label><input id="digOrg"></div></div>
+  <div class="fr"><div class="fg"><label>Official Email *</label><input id="digEmail" type="email" data-req="true"></div><div class="fg"><label>WhatsApp *</label><input id="digWa" placeholder="+254…" data-req="true"></div></div>
+  <div class="fr"><div class="fg"><label>Category</label><select id="digCat"><option>Government</option><option>Corporate</option><option>Academic</option><option>Religious</option><option>NGO</option></select></div><div class="fg"><label>Dietary</label><select><option>None</option><option>Strict Veg</option><option>Jain</option><option>Vegan</option><option>Gluten-Free</option></select></div></div>
+  <div class="fr"><div class="fg"><label>Primary Karyakar</label><select id="addDigKar"><option>No karyakars available</option></select></div><div class="fg"><label>Interest Tags</label><input placeholder="Healthcare, Youth…"></div></div>
+  <div class="fg" style="margin-bottom:18px"><label>Protocol Notes</label><textarea placeholder="Spouse, seating, greeting…"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveDig()">Save</button><button class="btn btn-o" onclick="closeM('addDig')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-addEvt"><div class="modal"><div class="mh"><h3>Create Event</h3><button class="mc" onclick="closeM('addEvt')">✕</button></div><div class="mb">
+  <div class="fg" style="margin-bottom:14px"><label>Event Name</label><input id="evtName" data-req="true"></div>
+  <div class="fr"><div class="fg"><label>Date</label><input id="evtDate" type="date" data-req="true"></div><div class="fg"><label>Time</label><div class="bg nw"><input id="evtTime" placeholder="hh:mm" inputmode="numeric" style="flex:1" data-req="true"><select id="evtAmpm" style="min-width:86px"><option>AM</option><option>PM</option></select></div></div></div>
+  <div class="fg" style="margin-bottom:14px"><label>Venue</label><input id="evtVenue" data-req="true"></div>
+  <div class="fg" style="margin-bottom:14px"><label>Description</label><textarea id="evtDesc" placeholder="Short description / agenda…"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveEvt()">Create</button><button class="btn btn-o" onclick="closeM('addEvt')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-editEvt"><div class="modal"><div class="mh"><h3>Edit Event</h3><button class="mc" onclick="closeM('editEvt')">✕</button></div><div class="mb">
+  <div class="fg" style="margin-bottom:14px"><label>Event Name</label><input id="eeName" data-req="true"></div>
+  <div class="fr"><div class="fg"><label>Date</label><input id="eeDate" type="date" data-req="true"></div><div class="fg"><label>Time</label><div class="bg nw"><input id="eeTime" placeholder="hh:mm" inputmode="numeric" style="flex:1" data-req="true"><select id="eeAmpm" style="min-width:86px"><option>AM</option><option>PM</option></select></div></div></div>
+  <div class="fg" style="margin-bottom:14px"><label>Venue</label><input id="eeVenue" data-req="true"></div>
+  <div class="fg" style="margin-bottom:14px"><label>Description</label><textarea id="eeDesc" placeholder="Short description / agenda…"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveEvtEdits()">Save</button><button class="btn btn-o" onclick="closeM('editEvt')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-logInt"><div class="modal"><div class="mh"><h3>Log Interaction</h3><button class="mc" onclick="closeM('logInt')">✕</button></div><div class="mb">
+  <div class="fr"><div class="fg"><label>Dignitary</label><select id="intDig"><option>No dignitaries available</option></select></div><div class="fg"><label>Type</label><select id="intType"><option>📞 Phone Call</option><option>💬 WhatsApp</option><option>📧 Email</option><option>🏛️ Visit</option><option>📄 PDF Sent</option><option>🎁 Gift</option></select></div></div>
+  <div class="fg" style="margin-bottom:14px"><label>Date & Time</label><input type="datetime-local" data-req="true"></div>
+  <div class="fg" style="margin-bottom:14px"><label>Notes</label><textarea data-req="true"></textarea></div>
+  <div class="fg" style="margin-bottom:18px"><label>Follow-up?</label><select><option>No</option><option>Yes — 3 days</option><option>Yes — 1 week</option></select></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveInt()">Save</button><button class="btn btn-o" onclick="closeM('logInt')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-addDon"><div class="modal"><div class="mh"><h3>Record Donation</h3><button class="mc" onclick="closeM('addDon')">✕</button></div><div class="mb">
+  <div class="fr"><div class="fg"><label>Donor</label><select data-req="true"><option>No donors available</option></select></div><div class="fg"><label>Amount ($)</label><input type="number" data-req="true"></div></div>
+  <div class="fr"><div class="fg"><label>Date</label><input type="date" data-req="true"></div><div class="fg"><label>Receipt #</label><input></div></div>
+  <div class="fg" style="margin-bottom:14px"><label>Project</label><select><option>Akshardham</option><option>Education</option><option>Youth</option><option>Interfaith</option><option>General</option></select></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveDon()">Save</button><button class="btn btn-o" onclick="closeM('addDon')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-addKar"><div class="modal"><div class="mh"><h3>Add Karyakar</h3><button class="mc" onclick="closeM('addKar')">✕</button></div><div class="mb">
+  <div class="fr"><div class="fg"><label>First Name *</label><input id="karFn" data-req="true"></div><div class="fg"><label>Last Name *</label><input id="karLn" data-req="true"></div></div>
+  <div class="fr"><div class="fg"><label>Email *</label><input id="karEmail" type="email" data-req="true"></div><div class="fg"><label>Phone *</label><input id="karPhone" data-req="true" placeholder="+254..."></div></div>
+  <div class="fr"><div class="fg"><label>Role</label><select id="karRole"><option>Karyakar</option><option>Usher</option></select></div><div class="fg"><label>Status</label><select id="karStatus"><option>Active</option><option>Inactive</option></select></div></div>
+  <div class="fg" style="margin-bottom:18px"><label>Assigned Area</label><input id="karArea" placeholder="Region / Mandal / City"></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveKar()">Create</button><button class="btn btn-o" onclick="closeM('addKar')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-export"><div class="modal"><div class="mh"><h3>Export Center</h3><button class="mc" onclick="closeM('export')">✕</button></div><div class="mb">
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--info-light);color:var(--info)">📋</div><div class="rf"><h4>Dignitary Master List</h4><p>Complete database with contacts and tags</p></div><span style="font-size:.75rem;color:var(--text-muted)">XLSX</span></div>
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--success-light);color:var(--success)">📊</div><div class="rf"><h4>Event Attendance Report</h4><p>Rates, no-shows, check-in times</p></div><span style="font-size:.75rem;color:var(--text-muted)">PDF</span></div>
+  <div class="rd" onclick="toast('Generating…','ts')"><div class="ri" style="background:var(--saffron-light);color:var(--saffron)">💬</div><div class="rf"><h4>Communication History</h4><p>All calls, messages, visits with notes</p></div><span style="font-size:.75rem;color:var(--text-muted)">XLSX</span></div>
+</div></div></div>
+
+<div class="mo" id="m-attFilter"><div class="modal"><div class="mh"><h3>Attendance Trend Filter</h3><button class="mc" onclick="closeM('attFilter')">✕</button></div><div class="mb">
+  <div class="fg" style="margin-bottom:14px"><label>Range</label><select><option>Last 6 events</option><option>Last 12 events</option><option>This year</option></select></div>
+  <div class="fg" style="margin-bottom:18px"><label>Note</label><textarea placeholder="Filters will apply when live data is connected."></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="closeM('attFilter');toast('Filter applied (prototype)','ts')">Apply</button><button class="btn btn-o" onclick="closeM('attFilter')">Close</button></div>
+</div></div></div>
+
+<div class="mo" id="m-importDig"><div class="modal"><div class="mh"><h3>Import Dignitaries (Excel)</h3><button class="mc" onclick="closeM('importDig')">✕</button></div><div class="mb">
+  <div class="fg" style="margin-bottom:12px"><label>Upload XLSX / CSV *</label><input type="file" id="digImportFile" accept=".xlsx,.xls,.csv" data-req="true"></div>
+  <div class="fg" style="margin-bottom:16px"><label>Expected Columns</label><textarea readonly>Name, Email, Designation, Organization, Category, Karyakar, Status</textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="importDigs()">Import</button><button class="btn btn-s" onclick="closeM('importDig');openM('addDig')">+ Add Dignitary</button><button class="btn btn-o" onclick="closeM('importDig')">Close</button></div>
+</div></div></div>
+
+<div class="mo" id="m-bulkInv"><div class="modal"><div class="mh"><h3>Bulk Invitation Generator</h3><button class="mc" onclick="closeM('bulkInv')">✕</button></div><div class="mb">
+  <div class="fg" style="margin-bottom:14px"><label>Event</label><select id="bulkEvent"><option value="">No events available</option></select></div>
+  <div class="fg" style="margin-bottom:14px"><label>Audience</label><select id="bulkAudience"><option value="all">All dignitaries</option><option value="active">Active only</option></select></div>
+  <div class="fg" style="margin-bottom:18px"><label>Channel</label><select id="bulkChannel"><option value="pdf">PDF</option><option value="both">PDF + WhatsApp links</option></select></div>
+  <div class="bg"><button class="btn btn-p" onclick="bulkGenerateInvitations()">Generate</button><button class="btn btn-o" onclick="closeM('bulkInv')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-sendEmail"><div class="modal"><div class="mh"><h3>Send Invitation Email</h3><button class="mc" onclick="closeM('sendEmail')">✕</button></div><div class="mb">
+  <div class="fg" style="margin-bottom:14px"><label>To</label><input placeholder="Recipient email" data-req="true"></div>
+  <div class="fg" style="margin-bottom:14px"><label>Subject</label><input placeholder="Invitation subject" data-req="true"></div>
+  <div class="fg" style="margin-bottom:18px"><label>Message</label><textarea placeholder="Short note…" data-req="true"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="sendInviteEmail()">Send</button><button class="btn btn-o" onclick="closeM('sendEmail')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-logGift"><div class="modal"><div class="mh"><h3>Log Gift / Memento</h3><button class="mc" onclick="closeM('logGift')">✕</button></div><div class="mb">
+  <div class="fr"><div class="fg"><label>Dignitary</label><select><option>No dignitaries available</option></select></div><div class="fg"><label>Date</label><input type="date" data-req="true"></div></div>
+  <div class="fg" style="margin-bottom:14px"><label>Gift</label><input placeholder="e.g., Book, Shawl, Memento" data-req="true"></div>
+  <div class="fg" style="margin-bottom:18px"><label>Notes</label><textarea placeholder="Engraving / protocol notes"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveGift()">Save</button><button class="btn btn-o" onclick="closeM('logGift')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-viewDig"><div class="modal"><div class="mh"><h3>Dignitary Profile</h3><button class="mc" onclick="closeM('viewDig')">✕</button></div><div class="mb">
+  <div class="empty-state">
+    <div class="esi">👤</div>
+    <div class="est">Profile view</div>
+    <div class="esp">This dialog will show full profile details once real dignitary records are connected.</div>
+    <div class="bg"><button class="btn btn-sm btn-s" onclick="closeM('viewDig');openM('addDig')">+ Add Dignitary</button></div>
+  </div>
+</div></div></div>
+
+<div class="mo" id="m-editUser"><div class="modal"><div class="mh"><h3>Edit User</h3><button class="mc" onclick="closeM('editUser')">✕</button></div><div class="mb">
+  <div class="fg" style="margin-bottom:14px"><label>Full Name *</label><input id="euName" data-req="true"></div>
+  <div class="fr"><div class="fg"><label>Email *</label><input id="euEmail" type="email" data-req="true"></div><div class="fg"><label>Phone *</label><input id="euPhone" data-req="true"></div></div>
+  <div class="fr"><div class="fg"><label>Role</label><select id="euRole"><option>Karyakar</option><option>Usher</option></select></div><div class="fg"><label>Status</label><select id="euStatus"><option>Active</option><option>Inactive</option></select></div></div>
+  <div class="fg" style="margin-bottom:18px"><label>Assigned Area</label><input id="euArea" placeholder="Region / Mandal / City"></div>
+  <div class="bg"><button class="btn btn-p" onclick="saveUserEdits()">Save</button><button class="btn btn-o" onclick="closeM('editUser')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-aboutWelcome"><div class="modal"><div class="mh"><h3>Welcome to PRASAR</h3><button class="mc" onclick="closeM('aboutWelcome')">✕</button></div><div class="mb">
+  <div class="empty-state" style="margin-bottom:14px">
+    <div class="esi">✨</div>
+    <div class="est">Start with “About PRASAR”</div>
+    <div class="esp">This page explains what PRASAR is and how it supports PR seva workflows. You can skip showing this welcome next time.</div>
+  </div>
+  <div class="remember-row" style="margin:6px 0 14px"><input type="checkbox" id="skipAboutNext"><label for="skipAboutNext">Don’t show again</label></div>
+  <div class="bg"><button class="btn btn-p" onclick="completeAboutWelcome()">Continue</button><button class="btn btn-o" onclick="closeM('aboutWelcome')">Close</button></div>
+</div></div></div>
+
+<div class="toast" id="toastEl"></div>
+
+<script>
+// DATA
+const DIG=[];
+const USERS=[];
+const EVTS=[];
+const COMMS=[];
+const USERS_KEY='prasar_users_v1';
+const DIG_KEY='prasar_dig_v1';
+const EVTS_KEY='prasar_evts_v1';
+const COMMS_KEY='prasar_comms_v1';
+const NOTIF_CLEAR_KEY='prasar_notif_cleared_id_v1';
+const CT={'Government':'tag-g','Corporate':'tag-c','Academic':'tag-a','Religious':'tag-r','NGO':'tag-n'};
+const ABOUT_SKIP_KEY='prasar_skip_about_v1';
+const PDF_TPL_KEY='prasar_pdf_tpl_v1';
+
+// AUTH
+let role='admin';
+let actorName='System';
+const AUTH_KEY='prasar_auth_v1';
+const LOGIN_REMEMBER_KEY='prasar_login_remember_v1';
+function readLoginRememberMap(){
+  try{
+    const raw=localStorage.getItem(LOGIN_REMEMBER_KEY);if(!raw)return {};
+    const o=JSON.parse(raw);
+    if(!o||typeof o!=='object')return {};
+    if('role' in o&&(o.role==='admin'||o.role==='karyakar')&&('username' in o||'password' in o)){
+      const next={[o.role]:{username:typeof o.username==='string'?o.username:'',password:typeof o.password==='string'?o.password:''}};
+      try{localStorage.setItem(LOGIN_REMEMBER_KEY,JSON.stringify(next))}catch(_e){}
+      return next;
+    }
+    return o;
+  }catch(_e){return {}}
+}
+function writeLoginRememberMap(map){try{localStorage.setItem(LOGIN_REMEMBER_KEY,JSON.stringify(map))}catch(_e){}}
+function saveLoginRemember(r,username,password){
+  const map=readLoginRememberMap();
+  map[r]={username,password};
+  writeLoginRememberMap(map);
+}
+function clearLoginRemember(){try{localStorage.removeItem(LOGIN_REMEMBER_KEY)}catch(_e){}}
+function fillRememberedForSelectedRole(){
+  const lr=document.getElementById('loginRole'),lu=document.getElementById('loginUser'),lp=document.getElementById('loginPass'),rm=document.getElementById('rememberMe');
+  if(!lr||!lu||!lp||!rm)return;
+  const map=readLoginRememberMap();
+  const r=lr.value;
+  const entry=map[r];
+  if(entry&&typeof entry.username==='string'&&typeof entry.password==='string'){
+    lu.value=entry.username;
+    lp.value=entry.password;
+    rm.checked=true;
+  }else{
+    lu.value='';
+    lp.value='';
+    rm.checked=false;
+  }
+}
+function restoreLoginRemember(){fillRememberedForSelectedRole()}
+document.getElementById('loginRole').addEventListener('change',fillRememberedForSelectedRole);
+function saveAuthState(v,persist){
+  const s=JSON.stringify(v);
+  try{
+    if(persist){localStorage.setItem(AUTH_KEY,s);sessionStorage.removeItem(AUTH_KEY)}
+    else{sessionStorage.setItem(AUTH_KEY,s);localStorage.removeItem(AUTH_KEY)}
+  }catch(_e){}
+}
+function readAuthState(){
+  try{
+    const s=localStorage.getItem(AUTH_KEY)||sessionStorage.getItem(AUTH_KEY);
+    return s?JSON.parse(s):null;
+  }catch(_e){return null}
+}
+function clearAuthState(){
+  try{localStorage.removeItem(AUTH_KEY)}catch(_e){}
+  try{sessionStorage.removeItem(AUTH_KEY)}catch(_e){}
+}
+function applyRoleUI(){
+  document.body.classList.remove('admin-mode','karyakar-mode');
+  document.querySelectorAll('.admin-act').forEach(e=>e.style.display=role==='admin'?'':'none');
+  document.querySelectorAll('.karyakar-act').forEach(e=>e.style.display=role==='karyakar'?'':'none');
+  if(role==='admin'){document.getElementById('uNm').textContent=actorName||'Admin User';document.getElementById('uRl').textContent='Administrator';document.getElementById('uAv').textContent='A';
+    document.querySelectorAll('.admin-only').forEach(e=>e.style.display='');document.body.classList.add('admin-mode');}
+  else{document.getElementById('uNm').textContent=actorName||'Karyakar User';document.getElementById('uRl').textContent='PR Karyakar';document.getElementById('uAv').textContent='K';
+    document.querySelectorAll('.admin-only').forEach(e=>e.style.display='none');document.body.classList.add('karyakar-mode');}
+  if(role==='admin'){
+    const f1=document.getElementById('fCat'),f2=document.getElementById('fSt'),f3=document.getElementById('digKarFilter'),s=document.getElementById('dSearch');
+    if(f1)f1.value=''; if(f2)f2.value=''; if(f3)f3.value=''; if(s)s.value='';
+    renderDig(DIG);
+  }
+}
+function validateModal(id){
+  const box=document.getElementById('m-'+id);if(!box)return false;
+  let ok=true;
+  box.querySelectorAll('.field-error').forEach(e=>e.remove());
+  box.querySelectorAll('[data-req="true"]').forEach(el=>{
+    const v=(el.value||'').trim();
+    el.classList.remove('in-err');
+    if(!v){
+      ok=false;el.classList.add('in-err');
+      const m=document.createElement('div');m.className='field-error';m.textContent='Required field';
+      el.parentElement.appendChild(m);
+    }
+  });
+  return ok;
+}
+function fmtDate(d){try{return new Date(d).toLocaleDateString()}catch(_e){return d||'—'}}
+function fmtTime(t){
+  const s=String(t||'').trim();
+  if(!s)return '—';
+  const m12=s.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+  if(m12){
+    let hh=Number(m12[1]);const mm=m12[2];let ap=m12[3].toUpperCase();
+    if(!Number.isNaN(hh)){
+      hh=Math.max(1,Math.min(12,hh));
+      return `${hh}:${mm} ${ap}`;
+    }
+    return s;
+  }
+  // accepts "HH:MM" or "HH:MM:SS"
+  const m=s.match(/^(\d{1,2}):(\d{2})/);
+  if(!m)return s;
+  let hh=Number(m[1]),mm=m[2];
+  if(Number.isNaN(hh))return s;
+  const ap=hh>=12?'PM':'AM';
+  hh=hh%12; if(hh===0)hh=12;
+  return `${hh}:${mm} ${ap}`;
+}
+function parseTimeParts(t){
+  const s=String(t||'').trim();
+  const m12=s.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+  if(m12){
+    let hh=Number(m12[1]);const mm=m12[2];const ap=m12[3].toUpperCase();
+    if(Number.isNaN(hh))return {hhmm:'',ap:'AM'};
+    hh=Math.max(1,Math.min(12,hh));
+    return {hhmm:`${String(hh).padStart(2,'0')}:${mm}`,ap};
+  }
+  const m24=s.match(/^(\d{1,2}):(\d{2})/);
+  if(m24){
+    let hh=Number(m24[1]);const mm=m24[2];
+    if(Number.isNaN(hh))return {hhmm:'',ap:'AM'};
+    const ap=hh>=12?'PM':'AM';
+    hh=hh%12; if(hh===0)hh=12;
+    return {hhmm:`${String(hh).padStart(2,'0')}:${mm}`,ap};
+  }
+  return {hhmm:'',ap:'AM'};
+}
+function buildTime12(hhmm,ap){
+  const s=String(hhmm||'').trim();
+  const m=s.match(/^(\d{1,2}):(\d{2})$/);
+  if(!m)return '';
+  let hh=Number(m[1]);const mm=m[2];
+  if(Number.isNaN(hh))return '';
+  hh=Math.max(1,Math.min(12,hh));
+  const A=(String(ap||'AM').toUpperCase()==='PM')?'PM':'AM';
+  return `${hh}:${mm} ${A}`;
+}
+function normText(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ')}
+function digKey(d){
+  const name=normText(`${d?.pre||''} ${d?.fn||''} ${d?.ln||''}`);
+  const email=normText(d?.email||'');
+  const org=normText(d?.org||'');
+  return email?`${name}|${email}`:`${name}|${org}`;
+}
+function waDigits(v){
+  const s=String(v||'');
+  const digits=s.replace(/[^\d]/g,'');
+  if(!digits)return '';
+  // wa.me expects countrycode + number without leading '+'. Remove common leading 00.
+  return digits.startsWith('00')?digits.slice(2):digits;
+}
+function waUrl(d){
+  const num=waDigits(d?.wa||d?.pn||'');
+  return num?`https://wa.me/${num}`:'';
+}
+function commTypeKey(t){
+  const s=String(t||'').toLowerCase();
+  if(s.includes('whatsapp'))return 'whatsapp';
+  if(s.includes('email'))return 'email';
+  if(s.includes('phone'))return 'phone';
+  if(s.includes('visit'))return 'visit';
+  if(s.includes('pdf'))return 'pdf';
+  return 'other';
+}
+function updateDashboardAnalytics(){
+  const digs=roleScopedDigs();
+  const comms=roleScopedComms();
+  const cards=[...document.querySelectorAll('#page-dashboard .stat-card')];
+  const setCard=(label,val,sub)=>{
+    const c=cards.find(x=>x.querySelector('.lbl')?.textContent?.trim()===label); if(!c)return;
+    const v=c.querySelector('.val'),ch=c.querySelector('.chg');
+    if(v)v.textContent=String(val);
+    if(ch)ch.textContent=sub;
+  };
+  const activeEvents=EVTS.filter(e=>{
+    const d=new Date(e.date||'');
+    return !Number.isNaN(d.getTime());
+  }).length || EVTS.length;
+  const sent=comms.filter(c=>['email','pdf'].includes(commTypeKey(c.type))).length;
+  setCard('Total Dignitaries',digs.length,`Live: ${digs.length}`);
+  setCard('Active Events',activeEvents,activeEvents?'Live data':'No data');
+  setCard('Invitations Sent',sent,sent?'Live data':'No data');
+  setCard('Contributions',0,'No data');
+
+  const cCat=Chart.getChart('cCat');
+  if(cCat){
+    const labels=['Govt','Corporate','Academic','Religious','NGO'];
+    const map={'Government':'Govt','Corporate':'Corporate','Academic':'Academic','Religious':'Religious','NGO':'NGO'};
+    const vals={Govt:0,Corporate:0,Academic:0,Religious:0,NGO:0};
+    digs.forEach(d=>{const k=map[d.cat]||'Govt';vals[k]=(vals[k]||0)+1;});
+    cCat.data.labels=labels;
+    cCat.data.datasets[0].data=labels.map(k=>vals[k]||0);
+    cCat.update();
+  }
+  const cChn=Chart.getChart('cChn');
+  if(cChn){
+    const totals={whatsapp:0,email:0,phone:0,visit:0,pdf:0};
+    comms.forEach(c=>{const k=commTypeKey(c.type); if(totals[k]!==undefined)totals[k]++;});
+    cChn.data.datasets[0].data=[totals.whatsapp,totals.email,totals.phone,totals.visit,totals.pdf];
+    cChn.update();
+  }
+  const cReg=Chart.getChart('cReg');
+  if(cReg){
+    const by={};
+    digs.forEach(d=>{const k=(d.k||'Unassigned').trim()||'Unassigned';by[k]=(by[k]||0)+1;});
+    const keys=Object.keys(by).sort((a,b)=>by[b]-by[a]);
+    const top=keys.slice(0,5),other=keys.slice(5).reduce((s,k)=>s+by[k],0);
+    const labels=[...top]; if(other)labels.push('Others');
+    const vals=[...top.map(k=>by[k])]; if(other)vals.push(other);
+    cReg.data.labels=labels.length?labels:['No data'];
+    cReg.data.datasets[0].data=vals.length?vals:[0];
+    cReg.update();
+  }
+  const cAtt=Chart.getChart('cAtt');
+  if(cAtt){
+    const labels=(EVTS.length?EVTS.slice(0,6).map(e=>e.name||'Event'):['Event 1','Event 2','Event 3','Event 4','Event 5','Event 6']);
+    const invited=labels.map(()=>digs.length);
+    const attended=labels.map(()=>0);
+    cAtt.data.labels=labels;
+    cAtt.data.datasets[0].data=invited;
+    cAtt.data.datasets[1].data=attended;
+    cAtt.update();
+  }
+
+  const up=document.getElementById('dashUpcomingBody');
+  if(up){
+    const upcoming=EVTS
+      .map(e=>({e,dt:new Date(e.date||'')}))
+      .filter(x=>!Number.isNaN(x.dt.getTime()))
+      .sort((a,b)=>a.dt-b.dt)
+      .slice(0,6);
+    if(!upcoming.length){
+      up.innerHTML='<tr><td colspan="4" style="font-size:.85rem;color:var(--text-muted);padding:16px">No events configured yet.</td></tr>';
+    }else{
+      up.innerHTML=upcoming.map(x=>{
+        const invited=digs.length;
+        const status=x.dt>=new Date()?'Upcoming':'Past';
+        return `<tr><td><strong>${x.e.name||'Untitled'}</strong></td><td>${fmtDate(x.e.date)}</td><td>${invited}</td><td><span class="tag ${status==='Upcoming'?'tag-c':'tag-a'}">${status}</span></td></tr>`;
+      }).join('');
+    }
+  }
+
+  const tl=document.getElementById('dashRecentTl');
+  if(tl){
+    const recent=comms.slice().reverse().slice(0,6);
+    if(!recent.length){
+      tl.innerHTML='<div class="tli"><div class="tl-d">—</div><div class="tl-t">No activity logged yet.</div><div class="tl-p">New communications will appear here once recorded.</div></div>';
+    }else{
+      tl.innerHTML=recent.map(c=>`<div class="tli"><div class="tl-d">${c.when} · ${c.by||'System'}</div><div class="tl-t">${c.type} — ${c.who}</div><div class="tl-p">${c.note||'No notes'}</div></div>`).join('');
+    }
+  }
+}
+let pvEdit=false;
+let pvSelected=null;
+const pvEditableIds=['pvWm','pvLogo','pvOrg','pTo','pvInvLine','pvEventName','pvEventMeta','pvQr','pvFooter'];
+function getPdfPv(){return document.getElementById('pdfPv')}
+function selectPvEl(el){
+  try{document.querySelectorAll('#pdfPv .pv-el').forEach(x=>x.classList.remove('sel'))}catch(_e){}
+  pvSelected=el||null;
+  if(pvSelected)pvSelected.classList.add('sel');
+}
+function enablePvDrag(el){
+  let sx=0,sy=0,baseX=0,baseY=0,drag=false;
+  el.addEventListener('mousedown',(e)=>{
+    if(!pvEdit)return;
+    if(el.getAttribute('contenteditable')==='true' && e.detail<2)return;
+    drag=true;selectPvEl(el);
+    sx=e.clientX;sy=e.clientY;
+    baseX=Number(el.dataset.tx||0);
+    baseY=Number(el.dataset.ty||0);
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove',(e)=>{
+    if(!drag||!pvEdit)return;
+    const nx=baseX+(e.clientX-sx);
+    const ny=baseY+(e.clientY-sy);
+    el.dataset.tx=String(Math.round(nx));
+    el.dataset.ty=String(Math.round(ny));
+    el.style.transform=`translate(${el.dataset.tx}px, ${el.dataset.ty}px)`;
+  });
+  window.addEventListener('mouseup',()=>{drag=false;});
+  el.addEventListener('click',()=>{if(pvEdit)selectPvEl(el);});
+  el.addEventListener('dblclick',()=>{
+    if(!pvEdit)return;
+    if(el.getAttribute('data-kind')!=='text')return;
+    el.focus();
+    document.execCommand?.('selectAll',false,null);
+  });
+}
+function initPdfEditor(){
+  const pv=getPdfPv(); if(!pv)return;
+  pvEditableIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.dataset.pvId=id;
+    el.classList.add('pv-el');
+    const isText=!['pvQr','pvLogo'].includes(id);
+    el.dataset.kind=isText?'text':'block';
+    enablePvDrag(el);
+  });
+  const fi=document.getElementById('pvLogoFile');
+  if(fi && !fi._w){
+    fi._w=true;
+    fi.addEventListener('change',()=>{
+      const f=fi.files?.[0]; if(!f)return;
+      const r=new FileReader();
+      r.onload=()=>{
+        const el=document.getElementById('pvLogo'); if(!el)return;
+        el.innerHTML=`<img class="pv-logo-img" alt="Logo" src="${String(r.result||'')}">`;
+        if(pvEdit)selectPvEl(el);
+      };
+      r.readAsDataURL(f);
+    });
+  }
+}
+function togglePdfEdit(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  initPdfEditor();
+  pvEdit=!pvEdit;
+  const pv=getPdfPv();
+  if(!pv)return;
+  pv.classList.toggle('pv-edit',pvEdit);
+  const btn=document.getElementById('pvEditBtn');
+  if(btn)btn.textContent=pvEdit?'✅ Done Editing':'✏️ Edit Template';
+  pvEditableIds.forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const isText=el.dataset.kind==='text';
+    el.setAttribute('contenteditable',pvEdit && isText ? 'true':'false');
+  });
+  if(!pvEdit)selectPvEl(null);
+}
+function triggerLogoUpload(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  initPdfEditor();
+  document.getElementById('pvLogoFile')?.click();
+}
+function savePdfTemplate(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  initPdfEditor();
+  const pv=getPdfPv(); if(!pv)return;
+  const tpl={v:1,items:{},savedAt:new Date().toISOString()};
+  pvEditableIds.forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    tpl.items[id]={
+      html:el.innerHTML,
+      style:{
+        tx:el.dataset.tx||'0',
+        ty:el.dataset.ty||'0',
+        textAlign:el.style.textAlign||'',
+        color:el.style.color||'',
+        fontSize:el.style.fontSize||'',
+        fontFamily:el.style.fontFamily||'',
+        fontWeight:el.style.fontWeight||'',
+      }
+    };
+  });
+  try{localStorage.setItem(PDF_TPL_KEY,JSON.stringify(tpl))}catch(_e){}
+  toast('PDF template saved','ts');
+}
+function applyPdfTemplate(){
+  initPdfEditor();
+  let tpl=null;
+  try{tpl=JSON.parse(localStorage.getItem(PDF_TPL_KEY)||'null')}catch(_e){tpl=null}
+  if(!tpl||!tpl.items)return;
+  Object.keys(tpl.items).forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const it=tpl.items[id];
+    if(typeof it?.html==='string')el.innerHTML=it.html;
+    const st=it?.style||{};
+    ['textAlign','color','fontSize','fontFamily','fontWeight'].forEach(k=>{
+      if(st[k]!==undefined && st[k]!==null) el.style[k]=st[k];
+    });
+    const tx=Number(st.tx||0),ty=Number(st.ty||0);
+    el.dataset.tx=String(Number.isFinite(tx)?tx:0);
+    el.dataset.ty=String(Number.isFinite(ty)?ty:0);
+    el.style.transform=`translate(${el.dataset.tx}px, ${el.dataset.ty}px)`;
+  });
+}
+function resetPdfTemplate(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  try{localStorage.removeItem(PDF_TPL_KEY)}catch(_e){}
+  toast('Template reset','ts');
+  location.reload();
+}
+function dedupeDigs(){
+  const seen=new Set();
+  const unique=[];
+  DIG.forEach(d=>{
+    const key=digKey(d);
+    if(!key||seen.has(key))return;
+    seen.add(key);
+    unique.push(d);
+  });
+  if(unique.length!==DIG.length){
+    DIG.splice(0,DIG.length,...unique);
+  }
+}
+function updateDigCounts(){
+  const n=role==='admin'?DIG.length:roleScopedDigs().length;
+  const b=document.getElementById('digNavCount');
+  if(b)b.textContent=String(n);
+  const cards=[...document.querySelectorAll('#page-dashboard .stat-card')];
+  const total=cards.find(c=>c.querySelector('.lbl')?.textContent?.trim()==='Total Dignitaries');
+  if(total){
+    const val=total.querySelector('.val');
+    const chg=total.querySelector('.chg');
+    if(val)val.textContent=String(n);
+    if(chg)chg.textContent=n?`Live: ${n}`:'No data';
+  }
+  updateNotifications();
+}
+function aboutSkipKey(){
+  return `${ABOUT_SKIP_KEY}:${role||'unknown'}`;
+}
+function assignedToActor(d){
+  const a=String(actorName||'').trim().toLowerCase();
+  const k=String(d?.k||'').trim().toLowerCase();
+  return !!a && !!k && a===k;
+}
+function roleScopedDigs(){
+  if(role==='admin')return DIG;
+  return DIG.filter(assignedToActor);
+}
+function roleScopedComms(){
+  if(role==='admin')return COMMS;
+  const names=new Set(roleScopedDigs().map(d=>`${d.pre||''} ${d.fn||''} ${d.ln||''}`.trim().toLowerCase()));
+  const a=String(actorName||'').trim().toLowerCase();
+  return COMMS.filter(c=>{
+    const by=String(c.by||'').trim().toLowerCase();
+    const who=String(c.who||'').trim().toLowerCase();
+    return (a && by===a) || names.has(who);
+  });
+}
+function shouldShowAboutOnLogin(){
+  try{return localStorage.getItem(aboutSkipKey())!=='1'}catch(_e){return true}
+}
+function completeAboutWelcome(){
+  const skip=document.getElementById('skipAboutNext')?.checked;
+  if(skip){
+    try{localStorage.setItem(aboutSkipKey(),'1')}catch(_e){}
+  }
+  closeM('aboutWelcome');
+  nav('dashboard');
+}
+function postLoginLanding(){
+  if(shouldShowAboutOnLogin()){
+    nav('about');
+    const cb=document.getElementById('skipAboutNext');
+    if(cb)cb.checked=false;
+    openM('aboutWelcome');
+  }else{
+    nav('dashboard');
+  }
+}
+function persistData(){
+  try{localStorage.setItem(DIG_KEY,JSON.stringify(DIG))}catch(_e){}
+  try{localStorage.setItem(EVTS_KEY,JSON.stringify(EVTS))}catch(_e){}
+  try{localStorage.setItem(COMMS_KEY,JSON.stringify(COMMS))}catch(_e){}
+}
+function hydrateData(){
+  try{const x=JSON.parse(localStorage.getItem(DIG_KEY)||'[]');if(Array.isArray(x))DIG.splice(0,DIG.length,...x)}catch(_e){}
+  try{const x=JSON.parse(localStorage.getItem(EVTS_KEY)||'[]');if(Array.isArray(x))EVTS.splice(0,EVTS.length,...x)}catch(_e){}
+  try{const x=JSON.parse(localStorage.getItem(COMMS_KEY)||'[]');if(Array.isArray(x))COMMS.splice(0,COMMS.length,...x)}catch(_e){}
+  EVTS.forEach(e=>{
+    const c=String(e.createdBy||'').trim().toLowerCase();
+    if(!c || c==='system' || c==='karyakar'){
+      e.createdBy='Admin User';
+    }
+  });
+  dedupeDigs();
+  persistData();
+  updateDigCounts();
+}
+function refreshInviteSelectors(){
+  const invD=document.getElementById('invD'),invE=document.getElementById('invE'),intDig=document.getElementById('intDig'),bulkEvent=document.getElementById('bulkEvent');
+  const ds=roleScopedDigs();
+  if(invD){invD.innerHTML=ds.length?ds.map((d,i)=>`<option value="${DIG.indexOf(d)}">${d.pre} ${d.fn} ${d.ln}</option>`).join(''):'<option value="">No assigned dignitaries available</option>';}
+  if(invE){invE.innerHTML=EVTS.length?EVTS.map((e,i)=>`<option value="${i}">${e.name}</option>`).join(''):'<option value="">No sample events configured</option>';}
+  if(bulkEvent){bulkEvent.innerHTML=EVTS.length?EVTS.map((e,i)=>`<option value="${i}">${e.name}</option>`).join(''):'<option value="">No events available</option>';}
+  if(intDig){intDig.innerHTML=ds.length?ds.map((d,i)=>`<option value="${DIG.indexOf(d)}">${d.pre} ${d.fn} ${d.ln}</option>`).join(''):'<option>No assigned dignitaries available</option>';}
+}
+function renderEvents(){
+  const empty=document.getElementById('eventsEmpty'),wrap=document.getElementById('eventsDynWrap');if(!empty||!wrap)return;
+  if(!EVTS.length){empty.style.display='flex';wrap.style.display='none';wrap.innerHTML='';return;}
+  empty.style.display='none';wrap.style.display='block';
+  wrap.innerHTML=EVTS.map((e,i)=>{const c=String(e.createdBy||'').trim().toLowerCase();const creator=(!c||c==='system'||c==='karyakar')?'Admin User':e.createdBy;return `<div class="ec"><h4>${e.name}</h4><div class="meta"><span>📅 ${fmtDate(e.date)}</span><span>📍 ${e.venue||'—'}</span><span>🕐 ${fmtTime(e.time)}</span></div><div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Created by: <strong style="color:var(--text)">${creator}</strong></div>${e.desc?`<div style="margin-top:10px;font-size:.82rem;color:var(--text-light);line-height:1.5">${e.desc}</div>`:''}<div style="margin-top:12px" class="bg"><button class="btn btn-sm btn-p" onclick="nav('invitations')">Send Invites</button><button class="btn btn-sm btn-o" onclick="openEditEvt(${i})">Edit</button></div></div>`}).join('');
+  updateDashboardAnalytics();
+}
+function renderComms(){
+  const empty=document.getElementById('comEmpty'),tl=document.getElementById('comTimeline'),lbl=document.getElementById('comCountLbl');
+  if(lbl)lbl.textContent=`${COMMS.length} interactions`;
+  if(!empty||!tl)return;
+  if(!COMMS.length){empty.style.display='flex';tl.style.display='none';tl.innerHTML='';return;}
+  empty.style.display='none';tl.style.display='block';
+  tl.innerHTML=COMMS.slice().reverse().map(c=>`<div class="tli"><div class="tl-d">${c.when} · ${c.by||'System'}</div><div class="tl-t">${c.type} — ${c.who}</div><div class="tl-p">${c.note||'No notes'}</div></div>`).join('');
+  updateNotifications();
+  updateDashboardAnalytics();
+  updateReportsAnalytics();
+}
+function saveDig(){
+  if(!validateModal('addDig'))return;
+  const next={
+    id:Date.now(),pre:'',fn:(document.getElementById('digFn').value||'').trim(),ln:(document.getElementById('digLn').value||'').trim(),pn:'',
+    des:(document.getElementById('digDes').value||'').trim(),org:(document.getElementById('digOrg').value||'').trim(),
+    cat:document.getElementById('digCat').value,k:(document.getElementById('addDigKar').value||'Unassigned'),lc:'—',st:'Active',
+    email:(document.getElementById('digEmail').value||'').trim(),
+    wa:(document.getElementById('digWa').value||'').trim()
+  };
+  if(DIG.some(d=>digKey(d)===digKey(next))){toast('Duplicate dignitary skipped');return;}
+  DIG.push(next);
+  persistData();renderDig();refreshInviteSelectors();closeM('addDig');toast('Dignitary added!','ts');
+}
+function importDigs(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  const f=document.getElementById('digImportFile').files?.[0];
+  if(!f){toast('Please select a file');return;}
+  const normalizeRow=(r)=>{
+    const out={};
+    Object.keys(r||{}).forEach(k=>{out[String(k).toLowerCase().replace(/[^a-z0-9]/g,'')]=r[k];});
+    return out;
+  };
+  const val=(r,keys)=>{
+    for(const k of keys){
+      const v=r[k];
+      if(v!==undefined&&v!==null&&String(v).trim())return String(v).trim();
+    }
+    return '';
+  };
+  const toRow=(raw)=>{
+    const r=normalizeRow(raw);
+    const fullName=val(r,['name','fullname','guestname'])||`${val(r,['firstname','first'])} ${val(r,['lastname','last'])}`.trim();
+    const parts=fullName.split(' ').filter(Boolean);
+    const cat=val(r,['category','type'])||'Government';
+    const category=CT[cat]?cat:'Government';
+    return {
+    id:Date.now()+Math.floor(Math.random()*100000),
+    pre:'',
+    fn:parts[0]||'',
+    ln:parts.slice(1).join(' ')||'',
+    pn:'',
+    des:val(r,['designation','role','title']),
+    org:val(r,['organization','organisation','company','institution']),
+    cat:category,
+    k:val(r,['karyakar','owner','assignedto'])||'Unassigned',
+    lc:'—',
+    st:val(r,['status'])||'Active',
+    email:val(r,['email','mail','emailaddress']),
+    wa:val(r,['whatsapp','whatsappnumber','whatsappno','phone','phonenumber','mobile','mobilenumber','contact','contactnumber'])
+    };
+  };
+  const dedupe=new Set(DIG.map(d=>digKey(d)));
+  const finish=(rows)=>{
+    const parsed=rows.map(toRow).filter(x=>x.fn||x.ln||x.email);
+    let added=0;
+    let skipped=0;
+    parsed.forEach(x=>{
+      const k=digKey(x);
+      if(!dedupe.has(k)){dedupe.add(k);DIG.push(x);added++;}else skipped++;
+    });
+    persistData();renderDig();refreshInviteSelectors();closeM('importDig');toast(`${added} imported${skipped?`, ${skipped} skipped`:''}`,'ts');
+  };
+  if(f.name.toLowerCase().endsWith('.csv')){
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const text=String(reader.result||'').trim();
+      const [head,...lines]=text.split(/\r?\n/);
+      const cols=head.split(',').map(x=>x.trim());
+      const rows=lines.filter(Boolean).map(line=>{
+        const vals=line.split(',');
+        const o={};cols.forEach((c,i)=>o[c]=vals[i]?.trim()||'');return o;
+      });
+      finish(rows);
+    };
+    reader.readAsText(f);
+    return;
+  }
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const wb=XLSX.read(reader.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    finish(XLSX.utils.sheet_to_json(ws,{defval:''}));
+  };
+  reader.readAsArrayBuffer(f);
+}
+function saveEvt(){
+  if(!validateModal('addEvt'))return;
+  const time=buildTime12(document.getElementById('evtTime').value,document.getElementById('evtAmpm').value);
+  if(!time){toast('Invalid time. Use hh:mm');return;}
+  EVTS.push({id:Date.now(),name:document.getElementById('evtName').value.trim(),date:document.getElementById('evtDate').value,time,venue:document.getElementById('evtVenue').value.trim(),desc:(document.getElementById('evtDesc').value||'').trim(),createdBy:actorName||'System'});
+  persistData();renderEvents();refreshInviteSelectors();closeM('addEvt');toast('Event created!','ts');
+}
+let editEvtIdx=-1;
+function openEditEvt(i){
+  editEvtIdx=i;
+  const e=EVTS[i];
+  if(!e){toast('Event not found');return;}
+  document.getElementById('eeName').value=e.name||'';
+  document.getElementById('eeDate').value=e.date||'';
+  const tp=parseTimeParts(e.time);
+  document.getElementById('eeTime').value=tp.hhmm;
+  document.getElementById('eeAmpm').value=tp.ap;
+  document.getElementById('eeVenue').value=e.venue||'';
+  document.getElementById('eeDesc').value=e.desc||'';
+  openM('editEvt');
+}
+function saveEvtEdits(){
+  if(editEvtIdx<0)return;
+  if(!validateModal('editEvt'))return;
+  const e=EVTS[editEvtIdx];if(!e){toast('Event not found');return;}
+  e.name=document.getElementById('eeName').value.trim();
+  e.date=document.getElementById('eeDate').value;
+  const time=buildTime12(document.getElementById('eeTime').value,document.getElementById('eeAmpm').value);
+  if(!time){toast('Invalid time. Use hh:mm');return;}
+  e.time=time;
+  e.venue=document.getElementById('eeVenue').value.trim();
+  e.desc=(document.getElementById('eeDesc').value||'').trim();
+  persistData();renderEvents();refreshInviteSelectors();closeM('editEvt');toast('Event updated','ts');
+}
+function saveInt(){
+  if(!validateModal('logInt'))return;
+  const idx=Number(document.getElementById('intDig').value);
+  const who=DIG[idx]?`${DIG[idx].pre} ${DIG[idx].fn} ${DIG[idx].ln}`.trim():'Unknown';
+  COMMS.push({id:Date.now(),who,type:document.getElementById('intType').value,note:document.querySelector('#m-logInt textarea').value.trim(),when:new Date(document.querySelector('#m-logInt input[type=\"datetime-local\"]').value).toLocaleString(),by:actorName|| (role==='admin'?'Admin User':'Karyakar User')});
+  persistData();renderComms();closeM('logInt');toast('Interaction logged','ts');
+}
+function saveDon(){if(!validateModal('addDon'))return;closeM('addDon');toast('Donation recorded','ts')}
+function renderUsers(){
+  const empty=document.getElementById('usersEmpty'),wrap=document.getElementById('usersTblWrap'),body=document.getElementById('usersBody');
+  if(!empty||!wrap||!body)return;
+  if(!USERS.length){empty.style.display='flex';wrap.style.display='none';body.innerHTML='';return;}
+  empty.style.display='none';wrap.style.display='block';
+  body.innerHTML=USERS.map((u,i)=>`<tr>
+    <td><strong>${u.name}</strong></td>
+    <td>${u.email}</td>
+    <td><span class="tag ${u.role==='Karyakar'?'tag-c':'tag-a'}">${u.role}</span></td>
+    <td>${u.area||'—'}</td>
+    <td><span class="sd ${u.status==='Active'?'sd-a':'sd-i'}"></span>${u.status}</td>
+    <td><button class="btn btn-sm btn-o" onclick="openEditUser(${i})">Edit</button></td>
+  </tr>`).join('');
+  syncKaryakarOptions();
+  renderKarPerf();
+}
+function syncKaryakarOptions(){
+  const active=USERS.filter(u=>u.status==='Active');
+  const mk=(id,emptyLabel)=>{
+    const el=document.getElementById(id);if(!el)return;
+    if(!active.length){el.innerHTML=`<option value="">${emptyLabel}</option>`;return;}
+    const first=id==='addDigKar'?'Select karyakar':'All Karyakars';
+    el.innerHTML=`<option value="">${first}</option>`+active.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+  };
+  mk('digKarFilter','No karyakars available');
+  mk('comKarFilter','No karyakars available');
+  mk('addDigKar','No karyakars available');
+}
+function renderKarPerf(){
+  const body=document.getElementById('karPerfBody');if(!body)return;
+  const list=(role==='admin')
+    ? USERS.filter(u=>u.role==='Karyakar'||u.role==='Usher')
+    : [{name:actorName,role:'Karyakar',status:'Active'}];
+  if(!list.length){body.innerHTML='<tr><td colspan="8" style="font-size:.85rem;color:var(--text-muted);padding:16px">No karyakar performance data available yet.</td></tr>';return;}
+  const by={};
+  roleScopedComms().forEach(c=>{
+    const who=(c.by||'').trim(); if(!who)return;
+    const t=String(c.type||'').toLowerCase();
+    if(!by[who])by[who]={calls:0,wa:0,visits:0,invites:0};
+    if(t.includes('phone'))by[who].calls++;
+    else if(t.includes('whatsapp'))by[who].wa++;
+    else if(t.includes('visit'))by[who].visits++;
+    else if(t.includes('email')||t.includes('pdf'))by[who].invites++;
+  });
+  body.innerHTML=list.map(u=>{
+    const k=by[u.name]||{calls:0,wa:0,visits:0,invites:0};
+    const assigned=roleScopedDigs().filter(d=>(d.k||'')===u.name).length;
+    const pending=Math.max(0,assigned-(k.calls+k.wa+k.visits+k.invites));
+    const score=(k.calls*1.2)+(k.wa*1)+(k.visits*1.5)+(k.invites*0.8)-pending*0.5;
+    const grade=score>=15?'A':score>=8?'B':score>=3?'C':'D';
+    return `<tr><td><strong>${u.name}</strong></td><td>${assigned}</td><td>${k.calls}</td><td>${k.wa}</td><td>${k.visits}</td><td>${k.invites}</td><td><span style="color:${pending? 'var(--danger)':'var(--success)'};font-weight:600">${pending}</span></td><td><span class="tag" style="background:var(--warning-light);color:var(--warning)">${grade}</span></td></tr>`;
+  }).join('');
+}
+function persistUsers(){try{localStorage.setItem(USERS_KEY,JSON.stringify(USERS))}catch(_e){}}
+function hydrateUsers(){
+  try{
+    const rows=JSON.parse(localStorage.getItem(USERS_KEY)||'[]');
+    if(Array.isArray(rows)){USERS.splice(0,USERS.length,...rows)}
+  }catch(_e){}
+}
+let editUserIdx=-1;
+function openEditUser(i){
+  editUserIdx=i;
+  const u=USERS[i];
+  if(!u){toast('User not found');return;}
+  document.getElementById('euName').value=u.name||'';
+  document.getElementById('euEmail').value=u.email||'';
+  document.getElementById('euPhone').value=u.phone||'';
+  document.getElementById('euRole').value=u.role||'Karyakar';
+  document.getElementById('euStatus').value=u.status||'Active';
+  document.getElementById('euArea').value=u.area||'';
+  openM('editUser');
+}
+function saveUserEdits(){
+  if(editUserIdx<0)return;
+  if(!validateModal('editUser'))return;
+  const u=USERS[editUserIdx];if(!u)return;
+  const nextEmail=document.getElementById('euEmail').value.trim().toLowerCase();
+  if(USERS.some((x,idx)=>idx!==editUserIdx && x.email===nextEmail)){toast('Email already exists');return;}
+  u.name=document.getElementById('euName').value.trim();
+  u.email=nextEmail;
+  u.phone=document.getElementById('euPhone').value.trim();
+  u.role=document.getElementById('euRole').value;
+  u.status=document.getElementById('euStatus').value;
+  u.area=document.getElementById('euArea').value.trim();
+  persistUsers();
+  renderUsers();
+  closeM('editUser');
+  toast('User updated','ts');
+}
+function saveKar(){
+  if(!validateModal('addKar'))return;
+  const name=`${document.getElementById('karFn').value.trim()} ${document.getElementById('karLn').value.trim()}`.trim();
+  const email=document.getElementById('karEmail').value.trim().toLowerCase();
+  if(USERS.some(u=>u.email===email)){toast('Email already exists');return;}
+  USERS.push({
+    name,
+    email,
+    phone:document.getElementById('karPhone').value.trim(),
+    role:document.getElementById('karRole').value,
+    status:document.getElementById('karStatus').value,
+    area:document.getElementById('karArea').value.trim()
+  });
+  persistUsers();
+  renderUsers();
+  refreshInviteSelectors();
+  closeM('addKar');
+  toast('Karyakar created!','ts');
+}
+function saveGift(){if(!validateModal('logGift'))return;closeM('logGift');toast('Gift logged','ts')}
+function sendInviteEmail(){if(!validateModal('sendEmail'))return;closeM('sendEmail');toast('Email queued (prototype)','ts')}
+function enhanceUI(){
+  document.querySelectorAll('.card,.stat-card,.ec,.name-card').forEach((el,i)=>{
+    el.classList.add('reveal');
+    setTimeout(()=>el.classList.add('on'),Math.min(550,60*i));
+  });
+}
+function doLogin(){
+  if(!USERS.length)hydrateUsers();
+  role=document.getElementById('loginRole').value;
+  const u=(document.getElementById('loginUser').value||'').trim();
+  const p=document.getElementById('loginPass').value||'';
+  const kMatch=USERS.find(x=>{
+    const isK=(x.role==='Karyakar'||x.role==='Usher') && x.status!=='Inactive';
+    const uu=u.toLowerCase();
+    return isK && (String(x.email||'').toLowerCase()===uu || String(x.name||'').toLowerCase()===uu);
+  });
+  const ok=(role==='admin'&&u==='admin'&&p==='admin123')||(role==='karyakar'&&((u==='karyakar'&&p==='karyakar123')||(!!kMatch&&p==='karyakar123')));
+  if(!ok){
+    document.querySelector('.login-card').animate([{transform:'translateX(0)'},{transform:'translateX(-8px)'},{transform:'translateX(8px)'},{transform:'translateX(0)'}],{duration:250,easing:'ease-out'});
+    toast('Invalid credentials. Use demo credentials.');
+    return;
+  }
+  actorName= role==='admin' ? 'Admin User' : (kMatch?.name || u || 'Karyakar User');
+  const persist=document.getElementById('rememberMe').checked;
+  if(persist)saveLoginRemember(role,u,p);else clearLoginRemember();
+  saveAuthState({loggedIn:true,role,user:actorName},persist);
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.add('active');
+  hydrateUsers();
+  hydrateData();
+  applyRoleUI();
+  enhanceUI();
+  initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+  applyPdfTemplate();
+  updPDF();
+  postLoginLanding();
+}
+function doLogout(){clearAuthState();document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('appShell').classList.remove('active');restoreLoginRemember()}
+
+// NAV
+function nav(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  const t=document.getElementById('page-'+p);if(t)t.classList.add('active');
+  const n=document.querySelector(`.nav-item[data-page="${p}"]`);if(n)n.classList.add('active');
+  document.getElementById('bcPage').textContent=p.charAt(0).toUpperCase()+p.slice(1);
+  requestAnimationFrame(enhanceUI);
+  if(p==='reports')setTimeout(initRC,100);if(p==='hospitality')setTimeout(initHC,100);if(p==='donations')setTimeout(initDC,100);
+}
+document.querySelectorAll('.nav-item[data-page]').forEach(i=>i.addEventListener('click',()=>nav(i.dataset.page)));
+
+// TABS
+document.querySelectorAll('#eTabs .tab').forEach(t=>t.addEventListener('click',function(){document.querySelectorAll('#eTabs .tab').forEach(x=>x.classList.remove('active'));this.classList.add('active')}));
+document.querySelectorAll('#rTabs .tab').forEach(t=>t.addEventListener('click',function(){
+  document.querySelectorAll('#rTabs .tab').forEach(x=>x.classList.remove('active'));this.classList.add('active');
+  document.querySelectorAll('.rtab').forEach(x=>{x.classList.remove('active');x.style.display='none'});
+  const rt=document.getElementById('rt-'+this.dataset.rt);rt.classList.add('active');rt.style.display='block';
+  setTimeout(initRC,50);
+}));
+
+// TABLE
+function renderDig(list){
+  dedupeDigs();
+  const waSvg=`<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.5 3.5A11.5 11.5 0 0 0 2.7 17.6L2 22l4.6-1.2A11.5 11.5 0 0 0 20.5 3.5Zm-8.9 18a9.5 9.5 0 0 1-4.8-1.3l-.3-.2-2.8.8.7-2.7-.2-.3a9.5 9.5 0 1 1 7.4 3.7Zm5.5-7.1c-.3-.1-1.7-.8-2-1s-.5-.1-.7.2-.8 1-1 1.2-.4.2-.7.1a7.8 7.8 0 0 1-2.3-1.4 8.6 8.6 0 0 1-1.6-2c-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.4 0-.5s-.7-1.7-1-2.3c-.3-.6-.6-.5-.7-.5h-.6c-.2 0-.5.1-.7.3s-1 1-1 2.5 1 3 1.2 3.2 2 3.2 4.9 4.5c.7.3 1.3.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 2-1.3.2-.6.2-1.2.2-1.3s-.2-.2-.5-.3Z"/></svg>`;
+  const base=role==='admin'?DIG:roleScopedDigs();
+  const d=list||base;document.getElementById('dBody').innerHTML=d.map(x=>{const u=waUrl(x);return `<tr>
+    <td><strong>${x.pre} ${x.fn} ${x.ln}</strong>${x.pn?` <span style="color:var(--text-muted);font-size:.78rem">${x.pn}</span>`:''}</td>
+    <td style="font-size:.82rem">${x.des}</td><td style="font-size:.82rem">${x.org}</td>
+    <td><span class="tag ${CT[x.cat]||''}">${x.cat}</span></td><td style="font-size:.82rem">${x.k}</td>
+    <td style="font-size:.82rem">${x.lc}</td><td><span class="sd ${x.st==='Active'?'sd-a':'sd-i'}"></span>${x.st}</td>
+    <td><div class="bg nw"><button class="btn btn-sm btn-o" onclick="viewDig(${x.id})">👁</button>${u?`<a class="btn btn-sm btn-w" href="${u}" target="_blank" rel="noopener noreferrer" title="Open WhatsApp" aria-label="Open WhatsApp">${waSvg}</a>`:`<button class="btn btn-sm btn-w" onclick="toast('No WhatsApp number','ts')" title="No WhatsApp number" aria-label="No WhatsApp number">${waSvg}</button>`}</div></td></tr>`}).join('');
+  updateDigCounts();
+  updateDashboardAnalytics();
+}
+function viewDig(_id){openM('viewDig')}
+function filterDig(){
+  const s=document.getElementById('dSearch').value.toLowerCase(),c=document.getElementById('fCat').value,st=document.getElementById('fSt').value,k=(document.getElementById('digKarFilter')?.value||'');
+  const src=role==='admin'?DIG:roleScopedDigs();
+  renderDig(src.filter(x=>(x.fn+' '+x.ln+' '+x.org+' '+x.des).toLowerCase().includes(s)&&(!c||x.cat===c)&&(!st||x.st===st)&&(!k||x.k===k)));
+}
+document.getElementById('fCat').addEventListener('change',filterDig);document.getElementById('fSt').addEventListener('change',filterDig);document.getElementById('digKarFilter').addEventListener('change',filterDig);
+
+// MODALS
+function openM(n){document.getElementById('m-'+n).classList.add('show')}
+function closeM(n){document.getElementById('m-'+n).classList.remove('show')}
+document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show')}));
+const adminOnlyModal=new Set(['importDig']);
+const _openM=openM;
+openM=function(n){
+  if(adminOnlyModal.has(n)&&role!=='admin'){toast('Admin access required');return;}
+  _openM(n);
+}
+
+// TOAST
+function toast(m,c){const t=document.getElementById('toastEl');t.textContent=m;t.className='toast'+(c?' '+c:'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
+
+// PDF
+const PD=[];
+function updPDF(){
+  const i=Number(document.getElementById('invD').value);
+  const d=DIG[i];
+  if(!d){document.getElementById('pTo').innerHTML='To,<br><strong>[Dignitary Name]</strong><br>[Designation]<br>[Organization]';return;}
+  if(!pvEdit){
+    document.getElementById('pTo').innerHTML=`To,<br><strong>${d.pre?d.pre+' ':''}${d.fn} ${d.ln}</strong><br>${d.des||'[Designation]'}<br>${d.org||'[Organization]'}`;
+    const ei=Number(document.getElementById('invE').value);
+    const e=EVTS[ei];
+    if(e){
+      const en=document.getElementById('pvEventName'); if(en)en.textContent=e.name||'[Event Name]';
+      const em=document.getElementById('pvEventMeta'); if(em)em.innerHTML=`<strong>📅</strong> ${fmtDate(e.date)}<br><strong>🕐</strong> ${fmtTime(e.time)}<br><strong>📍</strong> ${(e.venue||'—')}`;
+    }
+  }
+}
+async function renderPdfBlobForSelection(eventIdx,digIdx){
+  const invE=document.getElementById('invE'),invD=document.getElementById('invD');
+  if(invE && Number.isFinite(eventIdx))invE.value=String(eventIdx);
+  if(invD && Number.isFinite(digIdx))invD.value=String(digIdx);
+  updPDF();
+  const pv=document.getElementById('pdfPv');
+  if(!pv)throw new Error('PDF preview not found');
+  if(typeof window.html2canvas!=='function' || !window.jspdf?.jsPDF){
+    throw new Error('PDF libraries not loaded');
+  }
+  const canvas=await window.html2canvas(pv,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+  const imgData=canvas.toDataURL('image/png');
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+  const pw=doc.internal.pageSize.getWidth();
+  const ph=doc.internal.pageSize.getHeight();
+  const margin=10;
+  const iw=pw-(margin*2);
+  const ih=(canvas.height*iw)/canvas.width;
+  const h=Math.min(ih,ph-(margin*2));
+  doc.addImage(imgData,'PNG',margin,margin,iw,h,'pv','FAST');
+  return doc;
+}
+async function generateInvitationPdf(){
+  try{
+    toast('Generating PDF...','ts');
+    const ei=Number(document.getElementById('invE')?.value||-1);
+    const di=Number(document.getElementById('invD')?.value||-1);
+    if(ei<0||di<0){toast('Select event and dignitary');return;}
+    const doc=await renderPdfBlobForSelection(ei,di);
+    const e=EVTS[ei],d=DIG[di];
+    const safe=(s)=>String(s||'invitation').replace(/[^\w\-]+/g,'_').slice(0,40);
+    doc.save(`prasar_invite_${safe(e?.name)}_${safe((d?.fn||'')+'_'+(d?.ln||''))}.pdf`);
+    toast('PDF downloaded','ts');
+  }catch(_e){toast('PDF generation failed');}
+}
+async function bulkGenerateInvitations(){
+  const ei=Number(document.getElementById('bulkEvent')?.value||-1);
+  if(ei<0||!EVTS[ei]){toast('Select an event');return;}
+  const audience=document.getElementById('bulkAudience')?.value||'all';
+  const channel=document.getElementById('bulkChannel')?.value||'pdf';
+  const targets=[];
+  DIG.forEach((d,i)=>{
+    if(audience==='active' && d.st!=='Active')return;
+    targets.push({d,i});
+  });
+  if(!targets.length){toast('No dignitaries to generate');return;}
+  closeM('bulkInv');
+  let done=0;
+  for(const t of targets){
+    try{
+      const doc=await renderPdfBlobForSelection(ei,t.i);
+      const safe=(s)=>String(s||'invitation').replace(/[^\w\-]+/g,'_').slice(0,40);
+      doc.save(`prasar_invite_${safe(EVTS[ei]?.name)}_${safe((t.d?.fn||'')+'_'+(t.d?.ln||''))}.pdf`);
+      if(channel==='both'){
+        const wu=waUrl(t.d); if(wu)window.open(wu,'_blank','noopener');
+      }
+      done++;
+      await new Promise(r=>setTimeout(r,180));
+    }catch(_e){}
+  }
+  toast(`Bulk done: ${done}/${targets.length} PDFs`,'ts');
+}
+
+// SCANNER
+function simScan(){toast('No attendee data available for simulation.')}
+
+// SEARCH
+function globalSearchItems(q){
+  const s=String(q||'').trim().toLowerCase();
+  if(!s)return [];
+  const items=[];
+  DIG.forEach((d,i)=>{
+    const name=`${d.fn||''} ${d.ln||''}`.trim();
+    const hay=`${name} ${d.org||''} ${d.des||''}`.toLowerCase();
+    if(hay.includes(s))items.push({kind:'dignitary',label:name||'Dignitary',sub:d.org||d.des||'—',idx:i});
+  });
+  EVTS.forEach((e,i)=>{
+    const hay=`${e.name||''} ${e.venue||''} ${e.desc||''}`.toLowerCase();
+    if(hay.includes(s))items.push({kind:'event',label:e.name||'Event',sub:`${fmtDate(e.date)} · ${fmtTime(e.time)}`,idx:i});
+  });
+  USERS.forEach((u,i)=>{
+    const hay=`${u.name||''} ${u.email||''} ${u.area||''}`.toLowerCase();
+    if(hay.includes(s))items.push({kind:'user',label:u.name||'User',sub:u.email||u.role||'—',idx:i});
+  });
+  return items.slice(0,12);
+}
+function applyGlobalSearchResult(r){
+  if(!r)return;
+  if(r.kind==='dignitary'){
+    nav('dignitaries');
+    const q=document.getElementById('gSearch').value||r.label;
+    document.getElementById('dSearch').value=q;
+    filterDig();
+    return;
+  }
+  if(r.kind==='event'){
+    nav('events');
+    return;
+  }
+  if(r.kind==='user'){
+    nav('users');
+  }
+}
+function updateSearchDropdown(){
+  const inp=document.getElementById('gSearch');
+  const dd=document.getElementById('gSearchDd');
+  if(!inp||!dd)return;
+  const rows=globalSearchItems(inp.value);
+  if(!rows.length){dd.classList.remove('show');dd.innerHTML='';return;}
+  dd.innerHTML=rows.map((r,idx)=>`<div class="it" data-i="${idx}"><strong>${r.label}</strong><div style="font-size:.74rem;color:var(--text-muted)">${r.kind.toUpperCase()} · ${r.sub||''}</div></div>`).join('');
+  dd.classList.add('show');
+  dd.querySelectorAll('.it').forEach(el=>el.addEventListener('click',()=>{
+    const i=Number(el.getAttribute('data-i')); const pick=rows[i];
+    applyGlobalSearchResult(pick); dd.classList.remove('show');
+  }));
+}
+document.getElementById('gSearch').addEventListener('input',updateSearchDropdown);
+document.getElementById('gSearch').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){
+    const rows=globalSearchItems(this.value);
+    if(rows.length){applyGlobalSearchResult(rows[0]);}
+    else if(this.value){nav('dignitaries');document.getElementById('dSearch').value=this.value;filterDig();}
+    document.getElementById('gSearchDd')?.classList.remove('show');
+  }
+});
+document.addEventListener('click',e=>{
+  const dd=document.getElementById('gSearchDd'),box=document.querySelector('.topbar .sbox');
+  if(dd&&box&&!box.contains(e.target))dd.classList.remove('show');
+  const panel=document.getElementById('notifPanel'),wrap=document.querySelector('.notif-wrap');
+  if(panel&&wrap&&!wrap.contains(e.target))panel.classList.remove('show');
+});
+function updateNotifications(){
+  const panel=document.getElementById('notifPanel');
+  const dot=document.getElementById('notifDot');
+  if(!panel||!dot)return;
+  let cleared=0;
+  try{cleared=Number(localStorage.getItem(NOTIF_CLEAR_KEY)||0)}catch(_e){cleared=0}
+  const recent=roleScopedComms().filter(c=>Number(c.id||0)>cleared).slice().reverse().slice(0,10);
+  panel.innerHTML='<div class="nh" style="display:flex;align-items:center;justify-content:space-between">Notifications <button class="btn btn-sm btn-o" style="padding:4px 8px" onclick="clearNotifications()">Clear</button></div>' + (recent.length
+    ? recent.map(c=>`<div class="ni"><strong>${c.type}</strong> · ${c.who}<div style="font-size:.74rem;color:var(--text-muted)">${c.when} · ${c.by||'System'}</div></div>`).join('')
+    : '<div class="ni" style="color:var(--text-muted)">No recent notifications.</div>');
+  dot.style.display=recent.length?'':'none';
+}
+function clearNotifications(){
+  const maxId=roleScopedComms().reduce((m,c)=>Math.max(m,Number(c.id||0)),0);
+  try{localStorage.setItem(NOTIF_CLEAR_KEY,String(maxId))}catch(_e){}
+  updateNotifications();
+}
+function toggleNotifications(){
+  updateNotifications();
+  document.getElementById('notifPanel')?.classList.toggle('show');
+}
+
+// CHARTS
+const CO={responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'DM Sans',size:11},padding:12,usePointStyle:true}}}};
+const N='#1A237E',S='#E8820C',G='#C9A84C',SU='#2E7D32',IN='#0277BD';
+
+function initCharts(){
+  document.querySelectorAll('.cc,.cc-s').forEach(el=>el.classList.add('skeleton'));
+  new Chart(document.getElementById('cAtt'),{type:'line',data:{labels:['Event 1','Event 2','Event 3','Event 4','Event 5','Event 6'],
+    datasets:[{label:'Invited',data:[0,0,0,0,0,0],borderColor:N,backgroundColor:'rgba(26,35,126,.08)',fill:true,tension:.4},
+      {label:'Attended',data:[0,0,0,0,0,0],borderColor:S,backgroundColor:'rgba(232,130,12,.08)',fill:true,tension:.4}]},
+    options:{...CO,scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}}}});
+  new Chart(document.getElementById('cCat'),{type:'doughnut',data:{labels:['Govt','Corporate','Academic','Religious','NGO'],
+    datasets:[{data:[0,0,0,0,0],backgroundColor:[N,'#00695C','#E65100','#880E4F','#01579B']}]},options:{...CO,cutout:'65%'}});
+  new Chart(document.getElementById('cChn'),{type:'bar',data:{labels:['WhatsApp','Email','Phone','In-Person','PDF'],
+    datasets:[{label:'Messages',data:[0,0,0,0,0],backgroundColor:[S,N,G,SU,IN]}]},
+    options:{...CO,indexAxis:'y',scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}},y:{grid:{display:false}}}}});
+  new Chart(document.getElementById('cReg'),{type:'polarArea',data:{labels:['Kenya','South Africa','Tanzania','Uganda','Rwanda','Others'],
+    datasets:[{data:[0,0,0,0,0,0],backgroundColor:['rgba(26,35,126,.7)','rgba(232,130,12,.7)','rgba(201,168,76,.7)','rgba(46,125,50,.7)','rgba(2,119,189,.7)','rgba(158,158,158,.5)']}]},options:{...CO}});
+  updateDashboardAnalytics();
+  setTimeout(()=>document.querySelectorAll('.cc,.cc-s').forEach(el=>el.classList.remove('skeleton')),350);
+}
+
+function initRC(){
+  const mk=(id,fn)=>{const c=document.getElementById(id);if(c&&!c._d){c._d=true;fn(c)}};
+  mk('cMon',c=>new Chart(c,{type:'bar',data:{labels:['M1','M2','M3','M4','M5','M6'],datasets:[{label:'WhatsApp',data:[0,0,0,0,0,0],backgroundColor:S},{label:'Email',data:[0,0,0,0,0,0],backgroundColor:N},{label:'Calls',data:[0,0,0,0,0,0],backgroundColor:G}]},options:{...CO,scales:{y:{beginAtZero:true,stacked:true,grid:{color:'rgba(0,0,0,.04)'}},x:{stacked:true,grid:{display:false}}}}}));
+  mk('cGro',c=>new Chart(c,{type:'line',data:{labels:['Y1','Y2','Y3','Y4','Y5'],datasets:[{label:'Dignitaries',data:[0,0,0,0,0],borderColor:N,backgroundColor:'rgba(26,35,126,.08)',fill:true,tension:.4,pointRadius:5}]},options:{...CO,scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}}));
+  mk('cEP',c=>new Chart(c,{type:'bar',data:{labels:['Event 1','Event 2','Event 3','Event 4','Event 5'],datasets:[{label:'Invited',data:[0,0,0,0,0],backgroundColor:'rgba(26,35,126,.3)'},{label:'Attended',data:[0,0,0,0,0],backgroundColor:'rgba(232,130,12,.7)'}]},options:{...CO,scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}}));
+  mk('cEC',c=>new Chart(c,{type:'bar',data:{labels:['Event 1','Event 2','Event 3','Event 4'],datasets:[{label:'Govt',data:[0,0,0,0],backgroundColor:N},{label:'Corp',data:[0,0,0,0],backgroundColor:S},{label:'Acad',data:[0,0,0,0],backgroundColor:G},{label:'Relig',data:[0,0,0,0],backgroundColor:'#880E4F'}]},options:{...CO,scales:{y:{stacked:true},x:{stacked:true,grid:{display:false}}}}}));
+  mk('cCT',c=>new Chart(c,{type:'doughnut',data:{labels:['WhatsApp','Email','Phone','Visit','PDF'],datasets:[{data:[0,0,0,0,0],backgroundColor:[S,N,G,SU,IN]}]},options:{...CO,cutout:'60%'}}));
+  mk('cRR',c=>new Chart(c,{type:'bar',data:{labels:['WhatsApp','Email','Phone'],datasets:[{label:'Response %',data:[0,0,0],backgroundColor:[S,N,G]}]},options:{...CO,scales:{y:{beginAtZero:true,max:100},x:{grid:{display:false}}}}}));
+  mk('cKar',c=>new Chart(c,{type:'radar',data:{labels:['Calls','WhatsApp','Visits','Invites','Follow-ups','Events'],datasets:[{label:'Karyakar A',data:[0,0,0,0,0,0],borderColor:N,backgroundColor:'rgba(26,35,126,.1)',pointBackgroundColor:N}]},options:{...CO,scales:{r:{beginAtZero:true}}}}));
+  updateReportsAnalytics();
+}
+function updateReportsAnalytics(){
+  const digs=roleScopedDigs();
+  const comms=roleScopedComms();
+  const parseType=(t)=>{
+    const s=String(t||'').toLowerCase();
+    if(s.includes('whatsapp'))return 'whatsapp';
+    if(s.includes('email'))return 'email';
+    if(s.includes('phone'))return 'phone';
+    if(s.includes('visit'))return 'visit';
+    if(s.includes('pdf'))return 'pdf';
+    return 'other';
+  };
+  const monthLabels=['Jan','Feb','Mar','Apr','May','Jun'];
+  const monthMap={};
+  const chTotals={whatsapp:0,email:0,phone:0,visit:0,pdf:0};
+  const digMap={};
+  comms.forEach(c=>{
+    const d=new Date(c.when||'');
+    const m=Number.isNaN(d.getTime())?null:d.getMonth();
+    const k=parseType(c.type);
+    if(chTotals[k]!==undefined)chTotals[k]++;
+    if(m!==null && m>=0 && m<6){
+      if(!monthMap[m])monthMap[m]={whatsapp:0,email:0,phone:0};
+      if(k==='whatsapp'||k==='email'||k==='phone')monthMap[m][k]++;
+    }
+    const who=String(c.who||'Unknown');
+    if(!digMap[who])digMap[who]={interactions:0,last:c.when||'—'};
+    digMap[who].interactions++;
+    digMap[who].last=c.when||digMap[who].last;
+  });
+
+  const mon=Chart.getChart('cMon');
+  if(mon){
+    mon.data.labels=monthLabels;
+    mon.data.datasets[0].data=monthLabels.map((_,i)=>monthMap[i]?.whatsapp||0);
+    mon.data.datasets[1].data=monthLabels.map((_,i)=>monthMap[i]?.email||0);
+    mon.data.datasets[2].data=monthLabels.map((_,i)=>monthMap[i]?.phone||0);
+    mon.update();
+  }
+  const ct=Chart.getChart('cCT');
+  if(ct){
+    ct.data.datasets[0].data=[chTotals.whatsapp,chTotals.email,chTotals.phone,chTotals.visit,chTotals.pdf];
+    ct.update();
+  }
+  const rr=Chart.getChart('cRR');
+  if(rr){
+    const total=Math.max(1,chTotals.whatsapp+chTotals.email+chTotals.phone);
+    rr.data.datasets[0].data=[
+      Math.round((chTotals.whatsapp/total)*100),
+      Math.round((chTotals.email/total)*100),
+      Math.round((chTotals.phone/total)*100)
+    ];
+    rr.update();
+  }
+  const kar=Chart.getChart('cKar');
+  if(kar){
+    const by={};
+    comms.forEach(c=>{
+      const who=(c.by||'').trim();
+      if(!who)return;
+      if(!by[who])by[who]={calls:0,wa:0,visits:0,invites:0};
+      const k=parseType(c.type);
+      if(k==='phone')by[who].calls++;
+      else if(k==='whatsapp')by[who].wa++;
+      else if(k==='visit')by[who].visits++;
+      else if(k==='email'||k==='pdf')by[who].invites++;
+    });
+    const top=Object.keys(by).sort((a,b)=>{
+      const sa=by[a].calls+by[a].wa+by[a].visits+by[a].invites;
+      const sb=by[b].calls+by[b].wa+by[b].visits+by[b].invites;
+      return sb-sa;
+    }).slice(0,3);
+    kar.data.datasets=top.map((name,idx)=>{
+      const v=by[name];
+      const col=[N,S,G][idx%3];
+      return {label:name,data:[v.calls,v.wa,v.visits,v.invites,0,0],borderColor:col,backgroundColor:'rgba(26,35,126,.08)',pointBackgroundColor:col};
+    });
+    if(!kar.data.datasets.length){
+      kar.data.datasets=[{label:'No data',data:[0,0,0,0,0,0],borderColor:N,backgroundColor:'rgba(26,35,126,.08)',pointBackgroundColor:N}];
+    }
+    kar.update();
+  }
+
+  const reportCards=[...document.querySelectorAll('#rt-ov .stat-card')];
+  const commCard=reportCards.find(c=>c.querySelector('.lbl')?.textContent?.trim()==='Total Communications');
+  if(commCard){const v=commCard.querySelector('.val');if(v)v.textContent=String(comms.length);}
+  const sentCard=reportCards.find(c=>c.querySelector('.lbl')?.textContent?.trim()==='Avg Sentiment');
+  if(sentCard){
+    const pos=chTotals.whatsapp+chTotals.email;
+    const neg=chTotals.phone>pos?chTotals.phone-pos:0;
+    const score=comms.length?Math.max(0,Math.min(100,Math.round(((pos-neg)/Math.max(1,comms.length))*100+50))):0;
+    const v=sentCard.querySelector('.val');if(v)v.textContent=`${score}%`;
+  }
+
+  const tbody=document.getElementById('topEngagedBody');
+  if(tbody){
+    const allowed= new Set(digs.map(d=>`${d.pre||''} ${d.fn||''} ${d.ln||''}`.trim().toLowerCase()));
+    const topRows=Object.entries(digMap).filter(([n])=>role==='admin'||allowed.has(String(n).toLowerCase())).sort((a,b)=>b[1].interactions-a[1].interactions).slice(0,8);
+    if(!topRows.length){
+      tbody.innerHTML='<tr><td colspan="6" style="font-size:.85rem;color:var(--text-muted);padding:16px">No engagement data available yet.</td></tr>';
+    }else{
+      tbody.innerHTML=topRows.map((r,idx)=>`<tr><td>${idx+1}</td><td><strong>${r[0]}</strong></td><td>—</td><td>${r[1].interactions}</td><td>—</td><td>${r[1].last||'—'}</td></tr>`).join('');
+    }
+  }
+}
+function initHC(){const c=document.getElementById('cDiet');if(c&&!c._d){c._d=true;new Chart(c,{type:'pie',data:{labels:['Strict Veg','Jain','Vegan','Halal','Gluten-Free','None'],datasets:[{data:[0,0,0,0,0,0],backgroundColor:[S,G,SU,'#880E4F',IN,'rgba(158,158,158,.5)']}]},options:{...CO}})}}
+function initDC(){
+  const mk=(id,fn)=>{const c=document.getElementById(id);if(c&&!c._d){c._d=true;fn(c)}};
+  mk('cDon',c=>new Chart(c,{type:'doughnut',data:{labels:['Akshardham','Education','Youth','Interfaith','General'],datasets:[{data:[0,0,0,0,0],backgroundColor:[N,S,SU,G,IN]}]},options:{...CO,cutout:'60%'}}));
+  mk('cDT',c=>new Chart(c,{type:'line',data:{labels:['M1','M2','M3','M4','M5','M6'],datasets:[{label:'Donations ($)',data:[0,0,0,0,0,0],borderColor:G,backgroundColor:'rgba(201,168,76,.1)',fill:true,tension:.4}]},options:{...CO,scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}}));
+}
+
+// RESPONSIVE
+function chkW(){const t=document.getElementById('menuTog');if(window.innerWidth<=900)t.style.display='inline-flex';else{t.style.display='none';document.getElementById('sidebar').classList.remove('open')}}
+window.addEventListener('resize',chkW);chkW();
+let __reloadHash='';
+async function initAutoReload(){
+  try{
+    const r=await fetch('/__reload-hash',{cache:'no-store'});
+    if(!r.ok)return;
+    const j=await r.json();
+    __reloadHash=j.hash||'';
+    if(!__reloadHash)return;
+  }catch(_e){return;}
+  const timer=setInterval(async()=>{
+    try{
+      const r=await fetch('/__reload-hash',{cache:'no-store'});
+      if(!r.ok){clearInterval(timer);return;}
+      const j=await r.json();
+      const h=j.hash||'';
+      if(__reloadHash&&h&&h!==__reloadHash)location.reload();
+    }catch(_e){clearInterval(timer);}
+  },1000);
+}
+initAutoReload();
+try{
+  const s=readAuthState();
+  if(s&&s.loggedIn&&(s.role==='admin'||s.role==='karyakar')){
+    role=s.role;
+    actorName=s.user|| (role==='admin'?'Admin User':'Karyakar User');
+    document.getElementById('loginRole').value=role;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.add('active');
+    hydrateUsers();
+    hydrateData();
+    applyRoleUI();
+    enhanceUI();
+    initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+    applyPdfTemplate();
+    updPDF();
+    postLoginLanding();
+  }else{
+    restoreLoginRemember();
+  }
+}catch(_e){}
+</script>
+</body>
+</html>
