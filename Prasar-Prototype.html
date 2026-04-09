@@ -138,6 +138,17 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:700;color:var(--nav
 .card{background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden}
 .card-hd{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .card-hd h3{font-size:1.05rem}
+.pv-card-hd{flex-direction:column;align-items:stretch;gap:14px}
+.pv-card-hd h3{margin:0}
+.pv-toolbar{display:flex;flex-direction:column;gap:14px;width:100%}
+.pv-toolbar-group{display:flex;flex-direction:column;gap:6px;width:100%}
+.pv-toolbar-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pv-toolbar-lbl{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:0}
+.pv-toolbar-bg{background:var(--bg-subtle);border:1px solid var(--border);border-radius:10px;padding:10px 12px;gap:10px}
+.pv-toolbar-bg .pv-bg-lbl{font-size:.74rem;color:var(--text-muted);white-space:nowrap}
+.pv-toolbar-group--actions{border-top:1px solid var(--border);padding-top:12px;margin-top:2px}
+.pv-toolbar-save{justify-content:flex-end;gap:10px}
+.pv-toolbar-save .btn{min-width:100px}
 .card-bd{padding:22px}.card-bd.np{padding:0}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
@@ -222,13 +233,28 @@ tr:hover td{background:rgba(232,130,12,.03)}
 .toast.show{transform:translateY(0);opacity:1}.toast.ts{background:var(--success)}
 
 .pdf-pv{border:2px solid var(--border);border-radius:var(--radius-lg);padding:48px 40px;max-width:560px;margin:0 auto;
-  background:linear-gradient(180deg,#FFFDF8 0%,#FFF 100%);position:relative;box-shadow:var(--shadow-lg)}
-.pdf-pv .wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:6rem;opacity:.03;font-family:'Playfair Display',serif;color:var(--navy);pointer-events:none}
+  background:linear-gradient(180deg,#FFFDF8 0%,#FFF 100%);position:relative;box-shadow:var(--shadow-lg);overflow:hidden}
+.pv-bg{position:absolute;inset:0;z-index:0;border-radius:inherit;background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none}
+.pv-edit-hint{display:none;font-size:.74rem;color:var(--text-muted);margin:0 0 12px 0;line-height:1.45;max-width:560px}
+.pv-edit-hint kbd{font-size:.68rem;padding:1px 6px;border-radius:4px;background:var(--bg-subtle);border:1px solid var(--border)}
+.pv-stack{position:relative;z-index:1}
+.pdf-pv .wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:6rem;opacity:.08;font-family:'Playfair Display',serif;color:var(--navy);pointer-events:none;z-index:0}
+.pv-stack.pv-laid-out .wm{pointer-events:auto}
 .pdf-pv.pv-edit{outline:2px dashed rgba(232,130,12,.35);outline-offset:6px}
-.pdf-pv.pv-edit .pv-el{position:relative;cursor:move;user-select:none;touch-action:none;display:block}
+.pv-stack.pv-laid-out .pv-el{position:absolute;margin:0;z-index:2;box-sizing:border-box}
+.pv-stack:not(.pv-laid-out) .pv-el:not(.wm){position:relative;display:block}
+.pdf-pv.pv-edit .pv-el{cursor:move;user-select:none;touch-action:none;outline:1px dashed transparent;outline-offset:2px}
+.pdf-pv.pv-edit .pv-el:hover{outline-color:rgba(232,130,12,.35);z-index:22}
 .pdf-pv.pv-edit .pv-el[contenteditable="true"]{cursor:text;user-select:text}
-.pdf-pv.pv-edit .pv-el.sel{box-shadow:0 0 0 2px rgba(232,130,12,.55),0 10px 24px rgba(26,35,126,.12);border-radius:8px}
+.pdf-pv.pv-edit .pv-el.sel{box-shadow:0 0 0 2px rgba(232,130,12,.55),0 10px 24px rgba(26,35,126,.12);border-radius:8px;z-index:26}
 .pdf-pv.pv-edit .pv-el .ql{pointer-events:none}
+.pdf-pv.pv-edit .pv-el.pv-has-resize{overflow:visible}
+.pdf-pv.pv-edit .pv-resize-handle{position:absolute;z-index:45;background:linear-gradient(135deg,var(--saffron) 0%,#c96a0a 100%);border:2px solid #fff;box-shadow:0 2px 8px rgba(26,35,126,.25);touch-action:none}
+.pdf-pv.pv-edit .pv-resize-handle[data-dir="e"]{right:0;top:50%;transform:translateY(-50%);width:11px;height:32px;border-radius:4px;cursor:ew-resize}
+.pdf-pv.pv-edit .pv-resize-handle[data-dir="s"]{left:50%;bottom:0;transform:translateX(-50%);width:32px;height:11px;border-radius:4px;cursor:ns-resize}
+.pdf-pv.pv-edit .pv-resize-handle[data-dir="se"]{right:0;bottom:0;width:18px;height:18px;border-radius:4px;cursor:nwse-resize}
+.pdf-pv.pv-edit .pv-resize-handle[data-dir="se"]::after{content:'';position:absolute;inset:3px;border-right:2px solid rgba(255,255,255,.9);border-bottom:2px solid rgba(255,255,255,.9);border-radius:0 0 2px 0;pointer-events:none}
+.pv-img-layer .pv-logo-img{max-width:200px;max-height:120px;width:auto;height:auto;object-fit:contain}
 .pv-logo-img{max-width:120px;max-height:54px;display:block}
 .pdf-pv .plogo{text-align:center;margin-bottom:8px;font-size:2.4rem}
 .pdf-pv .porg{text-align:center;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--text-light);margin-bottom:28px}
@@ -242,6 +268,7 @@ tr:hover td{background:rgba(232,130,12,.03)}
 .pdf-pv .qs span{background:var(--white);border-radius:1px}
 .pdf-pv .ql{font-size:.6rem;color:var(--text-muted)}
 .pdf-pv .pft{margin-top:24px;padding-top:16px;border-top:1px solid var(--border);font-size:.78rem;color:var(--text-light)}
+.pv-qr-img{display:block;max-width:140px;height:auto;border-radius:6px;margin:0 auto}
 
 .fb{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 .fb select,.fb input{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:'DM Sans',sans-serif}
@@ -487,32 +514,77 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Invitation Generator</h2><button class="btn btn-o btn-sm" onclick="openM('bulkInv')">📋 Bulk Generate</button></div>
 <div class="g2">
 <div><div class="card mb20"><div class="card-hd"><h3>Configure Invitation</h3></div><div class="card-bd">
-  <div class="fg" style="margin-bottom:14px"><label>Select Event</label><select id="invE"><option value="">No sample events configured</option></select></div>
+  <div class="fg" style="margin-bottom:14px"><label>Select Event</label><select id="invE" onchange="updPDF()"><option value="">No sample events configured</option></select></div>
   <div class="fg" style="margin-bottom:14px"><label>Select Dignitary</label><select id="invD" onchange="updPDF()"><option value="">No sample dignitaries configured</option></select></div>
   <div class="fg" style="margin-bottom:14px"><label>Custom Message</label><textarea placeholder="Add a personal note…"></textarea></div>
   <div class="bg"><button class="btn btn-p" onclick="generateInvitationPdf()">🖨️ Generate PDF</button><button class="btn btn-w" onclick="toast('WhatsApp opened!','ts')">💬 WhatsApp</button><button class="btn btn-o" onclick="openM('sendEmail')">📧 Email</button></div>
 </div></div></div>
-<div><div class="card"><div class="card-hd"><h3>PDF Preview</h3>
-  <div class="bg admin-only" style="gap:6px">
-    <button class="btn btn-sm btn-o" id="pvEditBtn" onclick="togglePdfEdit()">✏️ Edit Template</button>
-    <button class="btn btn-sm btn-o" onclick="triggerLogoUpload()">🖼️ Logo</button>
-    <button class="btn btn-sm btn-p" onclick="savePdfTemplate()">Save</button>
-    <button class="btn btn-sm btn-o" onclick="resetPdfTemplate()">Reset</button>
+<div><div class="card"><div class="card-hd pv-card-hd"><h3>PDF Preview</h3>
+  <div class="pv-toolbar admin-only">
+    <div class="pv-toolbar-group">
+      <span class="pv-toolbar-lbl">Template</span>
+      <div class="pv-toolbar-row">
+        <button type="button" class="btn btn-sm btn-o" id="pvEditBtn" onclick="togglePdfEdit()">✏️ Edit Template</button>
+        <button type="button" class="btn btn-sm btn-o" onclick="triggerLogoUpload()" title="Replace main header logo">🖼️ Logo</button>
+        <button type="button" class="btn btn-sm btn-o" onclick="triggerExtraImageUpload()" title="Add another image on the canvas">＋ Image</button>
+      </div>
+    </div>
+    <div class="pv-toolbar-group">
+      <span class="pv-toolbar-lbl">Page</span>
+      <div class="pv-toolbar-row">
+        <button type="button" class="btn btn-sm btn-o" onclick="triggerBgUpload()" title="New image replaces the current background">🎨 Background</button>
+        <button type="button" class="btn btn-sm btn-o" onclick="triggerQrUpload()" title="Upload a QR image (replaces placeholder)">QR image</button>
+        <button type="button" class="btn btn-sm btn-o" onclick="resetPvQrPlaceholder()" title="Restore built-in QR placeholder">Default QR</button>
+      </div>
+    </div>
+    <div class="pv-toolbar-group">
+      <span class="pv-toolbar-lbl">Background appearance</span>
+      <div class="pv-toolbar-row pv-toolbar-bg">
+        <span class="pv-bg-lbl">Size</span>
+        <select id="pvBgSize" class="btn btn-sm btn-o" style="padding:6px 12px;font-size:.78rem;min-width:140px" onchange="applyPvBgSettings()">
+          <option value="cover">Cover (fill)</option>
+          <option value="contain">Contain (fit)</option>
+          <option value="stretch">Stretch</option>
+          <option value="auto">Original</option>
+        </select>
+        <span class="pv-bg-lbl">Opacity</span>
+        <input type="range" id="pvBgOp" min="0.05" max="1" step="0.05" value="0.34" oninput="applyPvBgSettings()" style="width:120px;vertical-align:middle" title="Background opacity">
+      </div>
+    </div>
+    <div class="pv-toolbar-group pv-toolbar-group--actions">
+      <span class="pv-toolbar-lbl">Actions</span>
+      <div class="pv-toolbar-row pv-toolbar-save">
+        <button type="button" class="btn btn-sm btn-p" onclick="savePdfTemplate()">Save template</button>
+        <button type="button" class="btn btn-sm btn-o" onclick="resetPdfTemplate()">Reset</button>
+      </div>
+    </div>
     <input type="file" id="pvLogoFile" accept="image/*" style="display:none">
+    <input type="file" id="pvExtraImgFile" accept="image/*" style="display:none">
+    <input type="file" id="pvBgFile" accept="image/*" style="display:none">
+    <input type="file" id="pvQrFile" accept="image/*" style="display:none">
   </div>
 </div><div class="card-bd">
+  <p class="pv-edit-hint" id="pvEditHint">Each line (“To”, name, title, organization) is a separate box. <strong>Drag</strong> a box to move it. <strong>Click</strong> a box first. Then use the <strong>orange</strong> spots: right side = wider, bottom = taller, corner = both. On pictures and QR: spin the mouse wheel to resize; hold <kbd>Shift</kbd> and spin the wheel to change height. Background: use the buttons and sliders; uploading a new picture replaces the old one. For text boxes, hold <kbd>Shift</kbd> and <strong>drag</strong> to move the box (so you don’t type by mistake).</p>
   <div class="pdf-pv" id="pdfPv">
+    <div class="pv-bg" id="pvBg" aria-hidden="true"></div>
+    <div class="pv-stack" id="pvStack">
     <div class="wm" id="pvWm">ॐ</div><div class="plogo" id="pvLogo">🙏</div><div class="porg" id="pvOrg">BAPS Swaminarayan Sanstha · Africa</div>
-    <div class="pto" id="pTo">To,<br><strong>[Dignitary Name]</strong><br>[Designation]<br>[Organization]</div>
+    <div class="pto" id="pToLabel">To,</div>
+    <div class="pto" id="pDignitaryName"><strong>[Dignitary Name]</strong></div>
+    <div class="pto" id="pDesignation">[Designation]</div>
+    <div class="pto" id="pOrganization">[Organization]</div>
     <div class="pinv" id="pvInvLine">The BAPS Swaminarayan Sanstha cordially invites you to grace the occasion of…</div>
     <div class="pen" id="pvEventName">[Event Name]</div>
     <div class="pdet" id="pvEventMeta"><strong>📅</strong> [Event Date]<br><strong>🕐</strong> [Time]<br><strong>📍</strong> [Venue]</div>
-    <div class="pqr" id="pvQr"><div class="qb"><div class="qs"><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span></div><div class="ql">VIP Check-In QR</div></div></div>
+    <div class="pqr" id="pvQr"><div class="qb"><div id="pvQrSlot"><div class="qs"><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span></div></div><div class="ql">VIP Check-In QR</div></div></div>
     <div class="pft" id="pvFooter"><strong>Your Host:</strong> [Host Name]<br>📞 [Phone] · ✉️ [Email]</div>
+    </div>
   </div>
 </div></div></div>
 </div>
 </div>
+
+<template id="tplPvQrDefault"><div class="qs"><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span><span></span><span style="background:var(--navy)"></span><span></span><span></span></div></template>
 
 <!-- ══ COMMUNICATIONS ══ -->
 <div class="page" id="page-communications">
@@ -838,6 +910,20 @@ const NOTIF_CLEAR_KEY='prasar_notif_cleared_id_v1';
 const CT={'Government':'tag-g','Corporate':'tag-c','Academic':'tag-a','Religious':'tag-r','NGO':'tag-n'};
 const ABOUT_SKIP_KEY='prasar_skip_about_v1';
 const PDF_TPL_KEY='prasar_pdf_tpl_v1';
+const PV_DEFAULT_BOX={
+  pvWm:{ l:96,t:240,w:288 },
+  pvLogo:{ l:176,t:4,w:128 },
+  pvOrg:{ l:12,t:56,w:456 },
+  pToLabel:{ l:12,t:84,w:72 },
+  pDignitaryName:{ l:12,t:112,w:456 },
+  pDesignation:{ l:12,t:148,w:456 },
+  pOrganization:{ l:12,t:178,w:456 },
+  pvInvLine:{ l:12,t:218,w:456 },
+  pvEventName:{ l:12,t:286,w:456 },
+  pvEventMeta:{ l:28,t:352,w:424 },
+  pvQr:{ l:232,t:420,w:200 },
+  pvFooter:{ l:12,t:560,w:456 }
+};
 
 // AUTH
 let role='admin';
@@ -1199,34 +1285,286 @@ function updateDashboardAnalytics(){
 }
 let pvEdit=false;
 let pvSelected=null;
-const pvEditableIds=['pvWm','pvLogo','pvOrg','pTo','pvInvLine','pvEventName','pvEventMeta','pvQr','pvFooter'];
+let pvExtraImgSeq=0;
+let pvImageResizeActive=false;
+const pvEditableIds=['pvWm','pvLogo','pvOrg','pToLabel','pDignitaryName','pDesignation','pOrganization','pvInvLine','pvEventName','pvEventMeta','pvQr','pvFooter'];
+function migrateLegacyRecipientTemplate(tpl){
+  if(!tpl.items||!tpl.items.pTo||tpl.items.pToLabel)return;
+  const raw=String(tpl.items.pTo.html||'');
+  const parts=raw.split(/<br\s*\/?>/i).map(s=>s.trim()).filter(Boolean);
+  const st=tpl.items.pTo.style||{};
+  if(parts.length>=4){
+    tpl.items.pToLabel={html:/To/i.test(parts[0])?parts[0]:'To,',style:st};
+    tpl.items.pDignitaryName={html:parts[1],style:{}};
+    tpl.items.pDesignation={html:parts[2],style:{}};
+    tpl.items.pOrganization={html:parts[3],style:{}};
+  }else if(parts.length===3){
+    tpl.items.pToLabel={html:'To,',style:st};
+    tpl.items.pDignitaryName={html:parts[0],style:{}};
+    tpl.items.pDesignation={html:parts[1],style:{}};
+    tpl.items.pOrganization={html:parts[2],style:{}};
+  }else{
+    tpl.items.pToLabel={html:'To,',style:st};
+    tpl.items.pDignitaryName={html:'<strong>[Dignitary Name]</strong>',style:{}};
+    tpl.items.pDesignation={html:'[Designation]',style:{}};
+    tpl.items.pOrganization={html:'[Organization]',style:{}};
+  }
+  delete tpl.items.pTo;
+}
+function applyPvBgSettings(){
+  const bg=document.getElementById('pvBg');
+  const sel=document.getElementById('pvBgSize');
+  const op=document.getElementById('pvBgOp');
+  if(!bg)return;
+  const mode=sel?sel.value:'cover';
+  const map={cover:'cover',contain:'contain',stretch:'100% 100%',auto:'auto'};
+  bg.style.backgroundSize=map[mode]||'cover';
+  if(op)bg.style.opacity=String(parseFloat(op.value)||0.34);
+}
+let __pvQrDefaultHtml='';
+function resetPvQrPlaceholder(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  initPdfEditor();
+  const slot=document.getElementById('pvQrSlot');
+  const tpl=document.getElementById('tplPvQrDefault');
+  if(!slot)return;
+  if(!__pvQrDefaultHtml&&tpl)__pvQrDefaultHtml=tpl.innerHTML;
+  slot.innerHTML=__pvQrDefaultHtml||(tpl?tpl.innerHTML:'');
+  layoutPdfToAbsoluteIfNeeded();
+  toast('Built-in QR graphic restored','ts');
+}
+function triggerQrUpload(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  initPdfEditor();
+  document.getElementById('pvQrFile')?.click();
+}
+function setPvQrCustomImage(dataUrl){
+  const slot=document.getElementById('pvQrSlot');
+  if(!slot||!dataUrl)return;
+  if(!__pvQrDefaultHtml){
+    const t=document.getElementById('tplPvQrDefault');
+    __pvQrDefaultHtml=t?t.innerHTML:slot.innerHTML;
+  }
+  slot.textContent='';
+  const img=document.createElement('img');
+  img.className='pv-qr-img';
+  img.alt='QR code';
+  img.src=dataUrl;
+  img.style.maxWidth='140px';
+  slot.appendChild(img);
+  layoutPdfToAbsoluteIfNeeded();
+  toast('Custom QR image applied','ts');
+}
 function getPdfPv(){return document.getElementById('pdfPv')}
+function setPdfEditHintVisible(show){
+  const h=document.getElementById('pvEditHint');
+  if(h)h.style.display=show?'block':'none';
+}
+function attachPvResizeHandles(hostEl){
+  if(!hostEl||!pvEdit)return;
+  if(hostEl.id==='pvWm')return;
+  hostEl.querySelectorAll('.pv-resize-handle').forEach(n=>n.remove());
+  hostEl.classList.add('pv-has-resize');
+  ['e','s','se'].forEach(dir=>{
+    const h=document.createElement('div');
+    h.className='pv-resize-handle';
+    h.setAttribute('data-dir',dir);
+    h.setAttribute('aria-hidden','true');
+    h.title=dir==='e'?'Resize width':dir==='s'?'Resize height':'Resize width and height';
+    hostEl.appendChild(h);
+    function startResize(ev){
+      ev.preventDefault();ev.stopPropagation();
+      if(!pvEdit)return;
+      const e=ev.touches?ev.touches[0]:ev;
+      beginPvResize(hostEl,dir,e.clientX,e.clientY);
+    }
+    h.addEventListener('mousedown',startResize);
+    h.addEventListener('touchstart',startResize,{passive:false});
+  });
+}
+function beginPvResize(hostEl,dir,startX,startY){
+  if(pvImageResizeActive)return;
+  const img=hostEl&&hostEl.querySelector('img');
+  const isImg=img&&img.tagName==='IMG';
+  pvImageResizeActive=true;
+  const r=isImg?img.getBoundingClientRect():{width:hostEl.offsetWidth||200,height:hostEl.offsetHeight||Math.max(40,hostEl.scrollHeight)};
+  const w0=r.width,h0=r.height;
+  function move(ev){
+    if(!pvImageResizeActive)return;
+    if(ev.type==='touchmove')ev.preventDefault();
+    const e=ev.touches?ev.touches[0]:ev;
+    const dx=e.clientX-startX,dy=e.clientY-startY;
+    let nw=w0,nh=h0;
+    if(dir==='e'){nw=Math.max(40,Math.min(560,w0+dx));nh=h0;}
+    else if(dir==='s'){nw=w0;nh=Math.max(24,Math.min(900,h0+dy));}
+    else{nw=Math.max(40,Math.min(560,w0+dx));nh=Math.max(24,Math.min(900,h0+dy));}
+    if(isImg){
+      img.style.maxWidth='none';
+      img.style.maxHeight='none';
+      img.style.width=Math.round(nw)+'px';
+      img.style.height=Math.round(nh)+'px';
+      img.style.objectFit='fill';
+    }else{
+      hostEl.style.width=Math.round(nw)+'px';
+      hostEl.style.height=Math.round(nh)+'px';
+      hostEl.style.minHeight=Math.round(nh)+'px';
+      hostEl.style.overflow='auto';
+      hostEl.style.boxSizing='border-box';
+    }
+    syncPdfStackHeight();
+  }
+  function up(){
+    pvImageResizeActive=false;
+    window.removeEventListener('mousemove',move);
+    window.removeEventListener('mouseup',up);
+    window.removeEventListener('touchmove',move);
+    window.removeEventListener('touchend',up);
+    window.removeEventListener('touchcancel',up);
+  }
+  window.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',up);
+  window.addEventListener('touchmove',move,{passive:false});
+  window.addEventListener('touchend',up);
+  window.addEventListener('touchcancel',up);
+}
 function selectPvEl(el){
-  try{document.querySelectorAll('#pdfPv .pv-el').forEach(x=>x.classList.remove('sel'))}catch(_e){}
+  try{
+    document.querySelectorAll('#pdfPv .pv-resize-handle').forEach(h=>h.remove());
+    document.querySelectorAll('#pdfPv .pv-el').forEach(x=>{x.classList.remove('sel','pv-has-resize');});
+  }catch(_e){}
   pvSelected=el||null;
   if(pvSelected)pvSelected.classList.add('sel');
+  if(pvEdit&&pvSelected)attachPvResizeHandles(pvSelected);
+}
+function syncPdfStackHeight(){
+  const stack=document.getElementById('pvStack');
+  if(!stack||!stack.classList.contains('pv-laid-out'))return;
+  let max=400;
+  stack.querySelectorAll('.pv-el').forEach(el=>{
+    const t=parseFloat(el.style.top)||0;
+    const h=el.offsetHeight||0;
+    max=Math.max(max,t+h);
+  });
+  stack.style.minHeight=(max+56)+'px';
+}
+function stripPdfLayerLayout(){
+  const stack=document.getElementById('pvStack');
+  if(!stack)return;
+  stack.classList.remove('pv-laid-out');
+  pvEditableIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.style.position='';
+    el.style.left='';
+    el.style.top='';
+    el.style.margin='';
+    el.style.transform='';
+    el.style.width='';
+    el.style.height='';
+    el.style.minHeight='';
+    el.style.overflow='';
+    el.style.boxSizing='';
+    delete el.dataset.lx;
+    delete el.dataset.ly;
+    delete el.dataset.tx;
+    delete el.dataset.ty;
+  });
+  stack.style.minHeight='';
+  document.getElementById('pdfPv')?.classList.remove('pdf-custom');
+}
+function isPdfLayoutCollapsed(){
+  const stack=document.getElementById('pvStack');
+  if(!stack||!stack.classList.contains('pv-laid-out'))return false;
+  const els=pvEditableIds.map(id=>document.getElementById(id)).filter(Boolean);
+  if(els.length<3)return false;
+  const tops=els.map(el=>parseFloat(el.style.top)||0);
+  const lefts=els.map(el=>parseFloat(el.style.left)||0);
+  const minT=Math.min(...tops),maxT=Math.max(...tops);
+  const minL=Math.min(...lefts),maxL=Math.max(...lefts);
+  return (maxT-minT)<8&&(maxL-minL)<8;
+}
+function repairPdfLayoutIfNeeded(){
+  const stack=document.getElementById('pvStack');
+  if(!stack||stack.offsetWidth<64)return;
+  if(!stack.classList.contains('pv-laid-out'))return;
+  if(!isPdfLayoutCollapsed())return;
+  applyPdfDefaultBoxLayout();
+}
+function applyPdfDefaultBoxLayout(){
+  const stack=document.getElementById('pvStack');
+  if(!stack||stack.offsetWidth<80)return;
+  stripPdfLayerLayout();
+  const pv=document.getElementById('pdfPv');
+  pvEditableIds.forEach(id=>{
+    const el=document.getElementById(id);
+    const box=PV_DEFAULT_BOX[id];
+    if(!el||!box)return;
+    el.style.position='absolute';
+    el.style.left=box.l+'px';
+    el.style.top=box.t+'px';
+    el.style.width=box.w+'px';
+    el.style.boxSizing='border-box';
+    el.style.margin='0';
+    el.style.transform='';
+    el.dataset.lx=String(box.l);
+    el.dataset.ly=String(box.t);
+  });
+  stack.classList.add('pv-laid-out');
+  if(pv)pv.classList.add('pdf-custom');
+  syncPdfStackHeight();
+}
+function layoutPdfToAbsolute(){
+  const stack=document.getElementById('pvStack');
+  if(!stack||stack.classList.contains('pv-laid-out'))return;
+  if(stack.offsetWidth<80)return;
+  applyPdfDefaultBoxLayout();
+}
+function layoutPdfToAbsoluteIfNeeded(){
+  const stack=document.getElementById('pvStack');
+  if(stack&&!stack.classList.contains('pv-laid-out'))layoutPdfToAbsolute();
 }
 function enablePvDrag(el){
+  if(el._pvDragBound)return;
+  el._pvDragBound=true;
   let sx=0,sy=0,baseX=0,baseY=0,drag=false;
-  el.addEventListener('mousedown',(e)=>{
+  function start(ev){
     if(!pvEdit)return;
-    if(el.getAttribute('contenteditable')==='true' && e.detail<2)return;
+    if(ev.target&&ev.target.closest&&ev.target.closest('.pv-resize-handle'))return;
+    const e=ev.touches?ev.touches[0]:ev;
+    const isText=el.getAttribute('contenteditable')==='true';
+    if(isText&&ev.type==='mousedown'&&!ev.shiftKey&&ev.detail<2)return;
+    if(isText&&ev.type==='touchstart'&&!ev.shiftKey)return;
     drag=true;selectPvEl(el);
     sx=e.clientX;sy=e.clientY;
-    baseX=Number(el.dataset.tx||0);
-    baseY=Number(el.dataset.ty||0);
-    e.preventDefault();
-  });
-  window.addEventListener('mousemove',(e)=>{
+    baseX=parseFloat(el.dataset.lx)||parseFloat(String(el.style.left).replace('px',''))||0;
+    baseY=parseFloat(el.dataset.ly)||parseFloat(String(el.style.top).replace('px',''))||0;
+    if(!Number.isFinite(baseX))baseX=0;
+    if(!Number.isFinite(baseY))baseY=0;
+    if(ev.type==='mousedown')ev.preventDefault();
+  }
+  function move(ev){
     if(!drag||!pvEdit)return;
+    if(ev.type==='touchmove')ev.preventDefault();
+    const e=ev.touches?ev.touches[0]:ev;
     const nx=baseX+(e.clientX-sx);
     const ny=baseY+(e.clientY-sy);
-    el.dataset.tx=String(Math.round(nx));
-    el.dataset.ty=String(Math.round(ny));
-    el.style.transform=`translate(${el.dataset.tx}px, ${el.dataset.ty}px)`;
+    el.dataset.lx=String(Math.round(nx));
+    el.dataset.ly=String(Math.round(ny));
+    el.style.left=el.dataset.lx+'px';
+    el.style.top=el.dataset.ly+'px';
+    syncPdfStackHeight();
+  }
+  function end(){drag=false;}
+  el.addEventListener('mousedown',start);
+  el.addEventListener('touchstart',start,{passive:false});
+  window.addEventListener('mousemove',move);
+  window.addEventListener('touchmove',move,{passive:false});
+  window.addEventListener('mouseup',end);
+  window.addEventListener('touchend',end);
+  el.addEventListener('click',()=>{
+    if(pvEdit)selectPvEl(el);
+    if(pvEdit&&el.dataset.kind==='text'){try{el.focus();}catch(_e){}}
   });
-  window.addEventListener('mouseup',()=>{drag=false;});
-  el.addEventListener('click',()=>{if(pvEdit)selectPvEl(el);});
   el.addEventListener('dblclick',()=>{
     if(!pvEdit)return;
     if(el.getAttribute('data-kind')!=='text')return;
@@ -1234,14 +1572,37 @@ function enablePvDrag(el){
     document.execCommand?.('selectAll',false,null);
   });
 }
+function addPdfImageLayer(src){
+  const stack=document.getElementById('pvStack');
+  if(!stack||!src)return;
+  layoutPdfToAbsoluteIfNeeded();
+  const id='pvImg_'+(++pvExtraImgSeq);
+  const div=document.createElement('div');
+  div.className='pv-el pv-img-layer plogo';
+  div.id=id;
+  div.dataset.kind='block';
+  div.dataset.lx='40';
+  div.dataset.ly='140';
+  div.style.cssText='position:absolute;left:40px;top:140px;margin:0;z-index:4';
+  div.innerHTML='<img class="pv-logo-img" alt="" src="'+String(src).replace(/"/g,'&quot;')+'">';
+  stack.appendChild(div);
+  enablePvDrag(div);
+  if(pvEdit)selectPvEl(div);
+  syncPdfStackHeight();
+}
 function initPdfEditor(){
   const pv=getPdfPv(); if(!pv)return;
+  if(!__pvQrDefaultHtml){
+    const t=document.getElementById('tplPvQrDefault');
+    const slot=document.getElementById('pvQrSlot');
+    __pvQrDefaultHtml=t?t.innerHTML:(slot&&slot.querySelector('.qs')?slot.innerHTML:'');
+  }
   pvEditableIds.forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
     el.dataset.pvId=id;
     el.classList.add('pv-el');
-    const isText=!['pvQr','pvLogo'].includes(id);
+    const isText=!['pvQr','pvLogo','pvWm'].includes(id);
     el.dataset.kind=isText?'text':'block';
     enablePvDrag(el);
   });
@@ -1252,10 +1613,51 @@ function initPdfEditor(){
       const f=fi.files?.[0]; if(!f)return;
       const r=new FileReader();
       r.onload=()=>{
+        layoutPdfToAbsoluteIfNeeded();
         const el=document.getElementById('pvLogo'); if(!el)return;
-        el.innerHTML=`<img class="pv-logo-img" alt="Logo" src="${String(r.result||'')}">`;
+        el.innerHTML='<img class="pv-logo-img" alt="Logo" src="'+String(r.result||'').replace(/"/g,'&quot;')+'">';
         if(pvEdit)selectPvEl(el);
+        fi.value='';
       };
+      r.readAsDataURL(f);
+    });
+  }
+  const fx=document.getElementById('pvExtraImgFile');
+  if(fx && !fx._w){
+    fx._w=true;
+    fx.addEventListener('change',()=>{
+      const f=fx.files?.[0]; if(!f)return;
+      const r=new FileReader();
+      r.onload=()=>{addPdfImageLayer(String(r.result||''));fx.value='';};
+      r.readAsDataURL(f);
+    });
+  }
+  const fb=document.getElementById('pvBgFile');
+  if(fb && !fb._w){
+    fb._w=true;
+    fb.addEventListener('change',()=>{
+      const f=fb.files?.[0]; if(!f)return;
+      const r=new FileReader();
+      r.onload=()=>{
+        const bg=document.getElementById('pvBg');
+        if(!bg)return;
+        bg.style.backgroundImage='url("'+String(r.result||'').replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'")';
+        const op=document.getElementById('pvBgOp');
+        if(op)bg.style.opacity=String(parseFloat(op.value)||0.34);
+        else bg.style.opacity='0.34';
+        applyPvBgSettings();
+        fb.value='';
+      };
+      r.readAsDataURL(f);
+    });
+  }
+  const fq=document.getElementById('pvQrFile');
+  if(fq && !fq._w){
+    fq._w=true;
+    fq.addEventListener('change',()=>{
+      const f=fq.files?.[0]; if(!f)return;
+      const r=new FileReader();
+      r.onload=()=>{setPvQrCustomImage(String(r.result||''));fq.value='';};
       r.readAsDataURL(f);
     });
   }
@@ -1274,40 +1676,36 @@ function togglePdfEdit(){
     const isText=el.dataset.kind==='text';
     el.setAttribute('contenteditable',pvEdit && isText ? 'true':'false');
   });
-  if(!pvEdit)selectPvEl(null);
+  if(!pvEdit){
+    selectPvEl(null);
+    setPdfEditHintVisible(false);
+    return;
+  }
+  setPdfEditHintVisible(true);
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      repairPdfLayoutIfNeeded();
+      const stack=document.getElementById('pvStack');
+      if(stack&&!stack.classList.contains('pv-laid-out'))layoutPdfToAbsolute();
+    });
+  });
 }
 function triggerLogoUpload(){
   if(role!=='admin'){toast('Admin access required');return;}
   initPdfEditor();
   document.getElementById('pvLogoFile')?.click();
 }
-function savePdfTemplate(){
+function triggerExtraImageUpload(){
   if(role!=='admin'){toast('Admin access required');return;}
   initPdfEditor();
-  const pv=getPdfPv(); if(!pv)return;
-  const tpl={v:1,items:{},savedAt:new Date().toISOString()};
-  pvEditableIds.forEach(id=>{
-    const el=document.getElementById(id); if(!el)return;
-    tpl.items[id]={
-      html:el.innerHTML,
-      style:{
-        tx:el.dataset.tx||'0',
-        ty:el.dataset.ty||'0',
-        textAlign:el.style.textAlign||'',
-        color:el.style.color||'',
-        fontSize:el.style.fontSize||'',
-        fontFamily:el.style.fontFamily||'',
-        fontWeight:el.style.fontWeight||'',
-      }
-    };
-  });
-  try{localStorage.setItem(PDF_TPL_KEY,JSON.stringify(tpl))}catch(_e){}
-  toast('PDF template saved','ts');
+  document.getElementById('pvExtraImgFile')?.click();
 }
-function applyPdfTemplate(){
+function triggerBgUpload(){
+  if(role!=='admin'){toast('Admin access required');return;}
   initPdfEditor();
-  let tpl=null;
-  try{tpl=JSON.parse(localStorage.getItem(PDF_TPL_KEY)||'null')}catch(_e){tpl=null}
+  document.getElementById('pvBgFile')?.click();
+}
+function applyPdfTemplateV1(tpl){
   if(!tpl||!tpl.items)return;
   Object.keys(tpl.items).forEach(id=>{
     const el=document.getElementById(id); if(!el)return;
@@ -1320,8 +1718,150 @@ function applyPdfTemplate(){
     const tx=Number(st.tx||0),ty=Number(st.ty||0);
     el.dataset.tx=String(Number.isFinite(tx)?tx:0);
     el.dataset.ty=String(Number.isFinite(ty)?ty:0);
-    el.style.transform=`translate(${el.dataset.tx}px, ${el.dataset.ty}px)`;
+    el.style.transform='translate('+el.dataset.tx+'px, '+el.dataset.ty+'px)';
   });
+}
+function applyPdfTemplateV2(tpl){
+  if(!tpl||!tpl.items)return;
+  migrateLegacyRecipientTemplate(tpl);
+  const stack=document.getElementById('pvStack');
+  if(!stack)return;
+  const bg=document.getElementById('pvBg');
+  stack.querySelectorAll('.pv-img-layer').forEach(n=>n.remove());
+  pvExtraImgSeq=0;
+  if(bg){
+    if(tpl.bg&&tpl.bg.src){
+      const u=String(tpl.bg.src).replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+      bg.style.backgroundImage='url("'+u+'")';
+      bg.style.opacity=String(tpl.bg.opacity!=null?tpl.bg.opacity:0.34);
+    }else{
+      bg.style.backgroundImage='';
+      bg.style.opacity='';
+    }
+    const sel=document.getElementById('pvBgSize');
+    const op=document.getElementById('pvBgOp');
+    if(sel&&tpl.bg&&tpl.bg.size)sel.value=tpl.bg.size;
+    if(op&&tpl.bg&&tpl.bg.opacity!=null)op.value=String(tpl.bg.opacity);
+    applyPvBgSettings();
+  }
+  Object.keys(tpl.items).forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const it=tpl.items[id];
+    if(typeof it?.html==='string')el.innerHTML=it.html;
+    const st=it?.style||{};
+    ['textAlign','color','fontSize','fontFamily','fontWeight'].forEach(k=>{
+      if(st[k]!==undefined && st[k]!==null) el.style[k]=st[k];
+    });
+    const lx=parseFloat(st.lx),ly=parseFloat(st.ly);
+    const sw=parseFloat(st.w);
+    if(Number.isFinite(lx)&&Number.isFinite(ly)){
+      el.dataset.lx=String(Math.round(lx));
+      el.dataset.ly=String(Math.round(ly));
+      el.style.position='absolute';
+      el.style.left=lx+'px';
+      el.style.top=ly+'px';
+      el.style.margin='0';
+      el.style.transform='';
+      const bw=Number.isFinite(sw)&&sw>10?sw:(PV_DEFAULT_BOX[id]?.w||400);
+      el.style.width=bw+'px';
+      el.style.boxSizing='border-box';
+      const sh=parseFloat(st.h);
+      if(Number.isFinite(sh)&&sh>10){
+        el.style.height=sh+'px';
+        el.style.minHeight=sh+'px';
+        el.style.overflow='auto';
+      }
+    }
+  });
+  (tpl.extraImages||[]).forEach(ex=>{
+    const uid=ex.id||('pvImg_'+(++pvExtraImgSeq));
+    const w=ex.imgWidth||120;
+    const ih=parseFloat(ex.imgHeight);
+    const imgStyle=Number.isFinite(ih)&&ih>0
+      ?'width:'+w+'px;height:'+ih+'px;max-width:none;max-height:none;object-fit:fill'
+      :'max-width:'+w+'px;width:'+w+'px;height:auto';
+    const div=document.createElement('div');
+    div.className='pv-el pv-img-layer plogo';
+    div.id=uid;
+    div.dataset.kind='block';
+    div.dataset.lx=String(ex.lx||40);
+    div.dataset.ly=String(ex.ly||40);
+    div.style.cssText='position:absolute;left:'+(ex.lx||40)+'px;top:'+(ex.ly||40)+'px;margin:0;z-index:4';
+    div.innerHTML='<img class="pv-logo-img" alt="" src="'+String(ex.src||'').replace(/"/g,'&quot;')+'" style="'+imgStyle+'">';
+    stack.appendChild(div);
+    enablePvDrag(div);
+    const m=/pvImg_(\d+)/.exec(uid);
+    if(m)pvExtraImgSeq=Math.max(pvExtraImgSeq,parseInt(m[1],10));
+  });
+  if(stack){
+    stack.classList.add('pv-laid-out');
+    syncPdfStackHeight();
+  }
+  document.getElementById('pdfPv')?.classList.add('pdf-custom');
+  if(isPdfLayoutCollapsed()){
+    applyPdfDefaultBoxLayout();
+  }
+}
+function savePdfTemplate(){
+  if(role!=='admin'){toast('Admin access required');return;}
+  initPdfEditor();
+  layoutPdfToAbsoluteIfNeeded();
+  const pv=getPdfPv(); if(!pv)return;
+  const stack=document.getElementById('pvStack');
+  const tpl={v:4,items:{},extraImages:[],savedAt:new Date().toISOString()};
+  const bg=document.getElementById('pvBg');
+  const selBg=document.getElementById('pvBgSize');
+  const opBg=document.getElementById('pvBgOp');
+  if(bg&&bg.style.backgroundImage&&bg.style.backgroundImage!=='none'){
+    const m=bg.style.backgroundImage.match(/url\(["']?([^"']+)["']?\)/);
+    tpl.bg={src:m?m[1]:'',opacity:parseFloat(opBg?.value)||parseFloat(bg.style.opacity)||0.34,size:selBg?selBg.value:'cover'};
+  }else{tpl.bg={src:'',opacity:parseFloat(opBg?.value)||0.34,size:selBg?selBg.value:'cover'};}
+  pvEditableIds.forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const w=parseFloat(String(el.style.width||'').replace(/px/g,''));
+    const h=parseFloat(String(el.style.height||'').replace(/px/g,''));
+    tpl.items[id]={
+      html:el.innerHTML,
+      style:{
+        lx:el.dataset.lx||String(parseFloat(el.style.left)||0),
+        ly:el.dataset.ly||String(parseFloat(el.style.top)||0),
+        w:Number.isFinite(w)&&w>0?w:(PV_DEFAULT_BOX[id]?.w||456),
+        h:Number.isFinite(h)&&h>0?h:'',
+        textAlign:el.style.textAlign||'',
+        color:el.style.color||'',
+        fontSize:el.style.fontSize||'',
+        fontFamily:el.style.fontFamily||'',
+        fontWeight:el.style.fontWeight||'',
+      }
+    };
+  });
+  if(stack)stack.querySelectorAll('.pv-img-layer').forEach(el=>{
+    const img=el.querySelector('img');
+    const src=img&&img.src||'';
+    let iw=120,ih=0;
+    if(img){
+      const rw=parseFloat(img.style.width);
+      const rh=parseFloat(img.style.height);
+      if(Number.isFinite(rw)&&rw>0)iw=rw;
+      else{
+        const mw=img.style&&img.style.maxWidth;
+        if(mw){const mm=String(mw).match(/(\d+)/);if(mm)iw=parseInt(mm[1],10);}
+      }
+      if(Number.isFinite(rh)&&rh>0)ih=rh;
+      else ih=img.getBoundingClientRect().height;
+    }
+    tpl.extraImages.push({id:el.id,src,lx:parseFloat(el.dataset.lx)||0,ly:parseFloat(el.dataset.ly)||0,imgWidth:iw,imgHeight:ih>0?ih:''});
+  });
+  try{localStorage.setItem(PDF_TPL_KEY,JSON.stringify(tpl))}catch(_e){}
+  toast('PDF template saved','ts');
+}
+function applyPdfTemplate(){
+  initPdfEditor();
+  let tpl=null;
+  try{tpl=JSON.parse(localStorage.getItem(PDF_TPL_KEY)||'null')}catch(_e){tpl=null}
+  if(!tpl||!tpl.items)return;
+  if(tpl.v===2||tpl.v===3||tpl.v===4)applyPdfTemplateV2(tpl);
+  else applyPdfTemplateV1(tpl);
 }
 function resetPdfTemplate(){
   if(role!=='admin'){toast('Admin access required');return;}
@@ -1329,6 +1869,56 @@ function resetPdfTemplate(){
   toast('Template reset','ts');
   location.reload();
 }
+document.addEventListener('wheel',function(e){
+  if(!pvEdit)return;
+  if(!pvSelected)return;
+  const t=e.target;
+  if(t&&t.closest&&t.closest('.pv-resize-handle'))return;
+  let img=null;
+  if(pvSelected.classList.contains('pv-img-layer')){
+    if(!(t&&pvSelected.contains(t)))return;
+    img=pvSelected.querySelector('img');
+  }else if(pvSelected.id==='pvQr'){
+    img=pvSelected.querySelector('img.pv-qr-img');
+    if(!img||!(t&&pvSelected.contains(t)))return;
+  }else if(pvSelected.id==='pvLogo'){
+    if(!(t&&pvSelected.contains(t)))return;
+    img=pvSelected.querySelector('img');
+  }else return;
+  if(!img)return;
+  e.preventDefault();
+  const r=img.getBoundingClientRect();
+  const step=e.deltaY>0?-8:8;
+  if(e.shiftKey){
+    const h=parseFloat(img.style.height)||r.height||80;
+    const nh=Math.min(900,Math.max(24,h+step));
+    img.style.maxHeight='none';
+    img.style.height=nh+'px';
+    img.style.objectFit='fill';
+  }else{
+    const w=parseFloat(img.style.width)||parseFloat(img.style.maxWidth)||r.width||120;
+    const nw=Math.min(560,Math.max(28,w+step));
+    img.style.maxWidth='none';
+    img.style.width=nw+'px';
+    if(!img.style.height||img.style.height==='auto'){
+      const ar=r.height/Math.max(r.width,1);
+      img.style.height=Math.round(nw*ar)+'px';
+    }
+    img.style.objectFit='fill';
+  }
+  syncPdfStackHeight();
+},{passive:false});
+document.addEventListener('keydown',function(e){
+  if(!pvEdit)return;
+  if(e.key!=='Delete'&&e.key!=='Backspace')return;
+  const a=document.activeElement;
+  if(a&&a.getAttribute&&a.getAttribute('contenteditable')==='true')return;
+  if(!pvSelected||!pvSelected.classList.contains('pv-img-layer'))return;
+  e.preventDefault();
+  pvSelected.remove();
+  selectPvEl(null);
+  syncPdfStackHeight();
+});
 function dedupeDigs(){
   const seen=new Set();
   const unique=[];
@@ -1803,6 +2393,7 @@ function nav(p){
   document.getElementById('bcPage').textContent=p.charAt(0).toUpperCase()+p.slice(1);
   requestAnimationFrame(enhanceUI);
   if(p==='reports')setTimeout(initRC,100);if(p==='hospitality')setTimeout(initHC,100);if(p==='donations')setTimeout(initDC,100);
+  if(p==='invitations')requestAnimationFrame(()=>requestAnimationFrame(()=>repairPdfLayoutIfNeeded()));
 }
 document.querySelectorAll('.nav-item[data-page]').forEach(i=>i.addEventListener('click',()=>nav(i.dataset.page)));
 
@@ -1869,9 +2460,20 @@ const PD=[];
 function updPDF(){
   const i=Number(document.getElementById('invD').value);
   const d=DIG[i];
-  if(!d){document.getElementById('pTo').innerHTML='To,<br><strong>[Dignitary Name]</strong><br>[Designation]<br>[Organization]';return;}
+  const setHtml=(id,h)=>{const el=document.getElementById(id);if(el)el.innerHTML=h;};
+  const setText=(id,t)=>{const el=document.getElementById(id);if(el)el.textContent=t;};
+  if(!d){
+    setText('pToLabel','To,');
+    setHtml('pDignitaryName','<strong>[Dignitary Name]</strong>');
+    setText('pDesignation','[Designation]');
+    setText('pOrganization','[Organization]');
+    return;
+  }
   if(!pvEdit){
-    document.getElementById('pTo').innerHTML=`To,<br><strong>${d.pre?d.pre+' ':''}${d.fn} ${d.ln}</strong><br>${d.des||'[Designation]'}<br>${d.org||'[Organization]'}`;
+    setText('pToLabel','To,');
+    setHtml('pDignitaryName',`<strong>${d.pre?d.pre+' ':''}${d.fn} ${d.ln}</strong>`);
+    setText('pDesignation',d.des||'[Designation]');
+    setText('pOrganization',d.org||'[Organization]');
     const ei=Number(document.getElementById('invE').value);
     const e=EVTS[ei];
     if(e){
