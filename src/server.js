@@ -503,7 +503,7 @@ app.post("/api/invitations/:id/send-email", async (req, res) => {
 app.get("/api/communications", async (_req, res) => {
   try {
     const result = await db.query(`
-      SELECT c.id, c.type, c.notes, c.happened_at, c.created_at,
+      SELECT c.id, c.dignitary_id, c.type, c.notes, c.happened_at, c.created_at,
              d.full_name AS dignitary_name,
              u.full_name AS user_name
       FROM communications c

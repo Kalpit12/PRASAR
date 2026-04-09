@@ -330,6 +330,26 @@ body::after{content:'';position:fixed;left:-150px;bottom:-120px;width:360px;heig
 .empty-state .esi{font-size:2rem;margin-bottom:8px}
 .empty-state .est{font-family:'Playfair Display',serif;color:var(--navy);font-size:1.05rem}
 .empty-state .esp{font-size:.83rem;color:var(--text-muted);max-width:460px;line-height:1.6;margin:8px auto 14px}
+.dig-profile-wrap{min-height:120px}
+.dig-profile{padding:4px 0 8px}
+.dig-profile-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--navy) 0%,#3949AB 100%);color:var(--gold);font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:var(--shadow)}
+.dig-profile-name{font-family:'Playfair Display',serif;font-size:1.25rem;color:var(--navy);text-align:center;margin:0 0 18px;line-height:1.3}
+.dig-profile-grid{display:flex;flex-direction:column;gap:12px}
+.dig-profile-row{display:grid;grid-template-columns:minmax(110px,32%) 1fr;gap:10px 14px;align-items:start;font-size:.9rem}
+.dig-l{color:var(--text-muted);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding-top:2px}
+.dig-v{color:var(--text);word-break:break-word;line-height:1.45}
+.dig-v .tag{font-size:.78rem}
+.dig-email{color:var(--info);font-weight:500;text-decoration:none}
+.dig-email:hover{text-decoration:underline}
+.dig-muted{color:var(--text-muted)}
+.dig-profile-section{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.dig-profile-section-title{font-family:'Playfair Display',serif;font-size:1.02rem;color:var(--navy);margin:0 0 6px}
+.dig-hint{color:var(--text-muted)}
+.dig-comm-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;max-height:220px;overflow-y:auto}
+.dig-comm-list li{font-size:.86rem;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg-subtle)}
+.dig-comm-type{font-weight:600;color:var(--navy);display:block;margin-bottom:4px}
+.dig-comm-meta{font-size:.74rem;color:var(--text-muted);display:block;margin-bottom:6px}
+.dig-comm-note{color:var(--text);font-size:.84rem;line-height:1.45;white-space:pre-wrap}
 .role-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
 .rq{background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:14px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s}
 .rq:hover{border-color:var(--saffron);transform:translateY(-2px)}
@@ -868,11 +888,10 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 </div></div></div>
 
 <div class="mo" id="m-viewDig"><div class="modal"><div class="mh"><h3>Dignitary Profile</h3><button class="mc" onclick="closeM('viewDig')">✕</button></div><div class="mb">
-  <div class="empty-state">
-    <div class="esi">👤</div>
-    <div class="est">Profile view</div>
-    <div class="esp">This dialog will show full profile details once real dignitary records are connected.</div>
-    <div class="bg"><button class="btn btn-sm btn-s" onclick="closeM('viewDig');openM('addDig')">+ Add Dignitary</button></div>
+  <div id="viewDigPanel" class="dig-profile-wrap" aria-live="polite"></div>
+  <div class="bg" style="margin-top:16px;flex-wrap:wrap;gap:8px">
+    <button type="button" class="btn btn-sm btn-s admin-only" onclick="closeM('viewDig');openM('addDig')">+ Add dignitary</button>
+    <button type="button" class="btn btn-o" onclick="closeM('viewDig')">Close</button>
   </div>
 </div></div></div>
 
@@ -948,6 +967,9 @@ function splitName(fullName){
   const parts=String(fullName||'').trim().split(/\s+/).filter(Boolean);
   return {fn:parts[0]||'',ln:parts.slice(1).join(' ')||''};
 }
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 function mapUserFromApi(u){
   return {
     id:Number(u.id),
@@ -976,7 +998,8 @@ function mapDigFromApi(d){
     lc:'—',
     st:'Active',
     email:d.email||'',
-    wa:''
+    wa:'',
+    createdAt:d.created_at||''
   };
 }
 function mapEventFromApi(e){
@@ -1013,6 +1036,7 @@ function commTypeToApi(t){
 function mapCommFromApi(c){
   return {
     id:Number(c.id),
+    digId:Number(c.dignitary_id)||0,
     who:c.dignitary_name||'Unknown',
     type:commTypeToUi(c.type),
     note:c.notes||'',
@@ -2420,7 +2444,70 @@ function renderDig(list){
   updateDigCounts();
   updateDashboardAnalytics();
 }
-function viewDig(_id){openM('viewDig')}
+function commsForDignitary(d){
+  const id=Number(d.dbId||d.id);
+  const named=`${d.fn||''} ${d.ln||''}`.trim();
+  const namedLower=named.toLowerCase();
+  const pool=roleScopedComms();
+  return pool.filter(c=>{
+    if(Number(c.digId)>0&&Number(c.digId)===id)return true;
+    if(!Number(c.digId)&&named&&c.who&&String(c.who).trim().toLowerCase()===namedLower)return true;
+    return false;
+  });
+}
+function fmtDigCreatedHtml(raw){
+  if(!raw)return '<span class="dig-muted">—</span>';
+  try{
+    const dt=new Date(raw);
+    if(Number.isNaN(dt.getTime()))return escapeHtml(String(raw));
+    return escapeHtml(dt.toLocaleString());
+  }catch(_e){return '<span class="dig-muted">—</span>';}
+}
+function fillViewDigPanel(d){
+  const el=document.getElementById('viewDigPanel');
+  if(!el)return;
+  const name=`${d.pre?d.pre+' ':''}${d.fn||''} ${d.ln||''}`.trim()||'—';
+  const initial=(()=>{
+    const t=`${d.fn||''}${d.ln||''}`.trim();
+    return t?t.charAt(0).toUpperCase():'?';
+  })();
+  const email=String(d.email||'').trim();
+  const emailRow=email
+    ? `<a href="mailto:${escapeHtml(email)}" class="dig-email">${escapeHtml(email)}</a>`
+    : '<span class="dig-muted">—</span>';
+  const rows=[
+    ['Email',emailRow],
+    ['Designation',d.des?escapeHtml(d.des):'<span class="dig-muted">—</span>'],
+    ['Organization',d.org?escapeHtml(d.org):'<span class="dig-muted">—</span>'],
+    ['Category',`<span class="tag ${CT[d.cat]||''}">${escapeHtml(d.cat||'—')}</span>`],
+    ['Karyakar',d.k?escapeHtml(d.k):'<span class="dig-muted">—</span>'],
+    ['Last contact',d.lc&&d.lc!=='—'?escapeHtml(d.lc):'<span class="dig-muted">—</span>'],
+    ['Status',d.st?escapeHtml(d.st):'<span class="dig-muted">—</span>'],
+    ['Added on',fmtDigCreatedHtml(d.createdAt)]
+  ];
+  const comms=commsForDignitary(d).slice(0,8);
+  const commHtml=comms.length
+    ? `<ul class="dig-comm-list">${comms.map(c=>`<li><span class="dig-comm-type">${escapeHtml(c.type)}</span><span class="dig-comm-meta">${escapeHtml(c.when)} · ${escapeHtml(c.by||'')}</span><div class="dig-comm-note">${escapeHtml(c.note)}</div></li>`).join('')}</ul>`
+    : '<p class="dig-muted" style="margin:0;font-size:.88rem">No notes here yet. Log an interaction from Communications.</p>';
+  el.innerHTML=`<div class="dig-profile">
+    <div class="dig-profile-avatar" aria-hidden="true">${escapeHtml(initial)}</div>
+    <h4 class="dig-profile-name">${escapeHtml(name)}</h4>
+    <div class="dig-profile-grid">${rows.map(([lab,val])=>`<div class="dig-profile-row"><span class="dig-l">${escapeHtml(lab)}</span><div class="dig-v">${val}</div></div>`).join('')}</div>
+    <div class="dig-profile-section">
+      <h4 class="dig-profile-section-title">Recent activity</h4>
+      <p class="dig-muted dig-hint" style="font-size:.82rem;margin:0 0 10px;line-height:1.45">Short notes your team saved for this person.</p>
+      ${commHtml}
+    </div>
+  </div>`;
+}
+function viewDig(id){
+  const n=Number(id);
+  const base=role==='admin'?DIG:roleScopedDigs();
+  const d=base.find(x=>Number(x.id)===n);
+  if(!d){toast('Could not find this dignitary.');return;}
+  fillViewDigPanel(d);
+  openM('viewDig');
+}
 async function deleteDig(id){
   if(role!=='admin'){toast('Admin access required');return;}
   if(!window.confirm('Delete this dignitary? This cannot be undone.'))return;
@@ -2554,10 +2641,11 @@ function globalSearchItems(q){
   const s=String(q||'').trim().toLowerCase();
   if(!s)return [];
   const items=[];
-  DIG.forEach((d,i)=>{
+  const digSource=role==='admin'?DIG:roleScopedDigs();
+  digSource.forEach((d)=>{
     const name=`${d.fn||''} ${d.ln||''}`.trim();
     const hay=`${name} ${d.org||''} ${d.des||''}`.toLowerCase();
-    if(hay.includes(s))items.push({kind:'dignitary',label:name||'Dignitary',sub:d.org||d.des||'—',idx:i});
+    if(hay.includes(s))items.push({kind:'dignitary',label:name||'Dignitary',sub:d.org||d.des||'—',digId:d.id});
   });
   EVTS.forEach((e,i)=>{
     const hay=`${e.name||''} ${e.venue||''} ${e.desc||''}`.toLowerCase();
@@ -2573,9 +2661,7 @@ function applyGlobalSearchResult(r){
   if(!r)return;
   if(r.kind==='dignitary'){
     nav('dignitaries');
-    const q=document.getElementById('gSearch').value||r.label;
-    document.getElementById('dSearch').value=q;
-    filterDig();
+    if(r.digId!=null)viewDig(r.digId);
     return;
   }
   if(r.kind==='event'){
