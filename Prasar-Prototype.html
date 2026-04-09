@@ -350,6 +350,8 @@ body::after{content:'';position:fixed;left:-150px;bottom:-120px;width:360px;heig
 .dig-comm-type{font-weight:600;color:var(--navy);display:block;margin-bottom:4px}
 .dig-comm-meta{font-size:.74rem;color:var(--text-muted);display:block;margin-bottom:6px}
 .dig-comm-note{color:var(--text);font-size:.84rem;line-height:1.45;white-space:pre-wrap}
+.dig-multiline{white-space:pre-wrap;line-height:1.5;font-size:.9rem}
+.dig-profile-sub{font-family:'Cormorant Garamond',serif;font-size:1.05rem;color:var(--text-light);text-align:center;margin:-6px 0 16px}
 .role-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
 .rq{background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:14px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s}
 .rq:hover{border-color:var(--saffron);transform:translateY(-2px)}
@@ -510,7 +512,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <input type="text" placeholder="Search name…" id="dSearch" oninput="filterDig()">
 </div>
 <div class="card"><div class="card-bd np"><div style="overflow-x:auto">
-  <table id="dTbl"><thead><tr><th>Name</th><th>Designation</th><th>Organization</th><th>Category</th><th>Karyakar</th><th>Last Contact</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dBody"></tbody></table>
+  <table id="dTbl"><thead><tr><th>Name</th><th>Designation</th><th>Organization</th><th>Phone</th><th>Category</th><th>Karyakar</th><th>Last Contact</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dBody"></tbody></table>
 </div></div></div>
 </div>
 
@@ -799,13 +801,13 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 
 <!-- MODALS -->
 <div class="mo" id="m-addDig"><div class="modal"><div class="mh"><h3>Add New Dignitary</h3><button class="mc" onclick="closeM('addDig')">✕</button></div><div class="mb">
-  <div class="fr"><div class="fg"><label>Salutation</label><select><option>Hon.</option><option>Dr.</option><option>Mr.</option><option>Ms.</option><option>Sheikh</option><option>Prof.</option></select></div><div class="fg"><label>Post-Nominals</label><input placeholder="PhD, MP, MBE…"></div></div>
+  <div class="fr"><div class="fg"><label>Salutation</label><select id="digSal"><option>Hon.</option><option>Dr.</option><option>Mr.</option><option>Ms.</option><option>Sheikh</option><option>Prof.</option></select></div><div class="fg"><label>Post-Nominals</label><input id="digPostNom" placeholder="PhD, MP, MBE…"></div></div>
   <div class="fr"><div class="fg"><label>First Name *</label><input id="digFn" data-req="true"></div><div class="fg"><label>Last Name *</label><input id="digLn" data-req="true"></div></div>
   <div class="fr"><div class="fg"><label>Designation</label><input id="digDes"></div><div class="fg"><label>Organization</label><input id="digOrg"></div></div>
   <div class="fr"><div class="fg"><label>Official Email *</label><input id="digEmail" type="email" data-req="true"></div><div class="fg"><label>WhatsApp *</label><input id="digWa" placeholder="+254…" data-req="true"></div></div>
-  <div class="fr"><div class="fg"><label>Category</label><select id="digCat"><option>Government</option><option>Corporate</option><option>Academic</option><option>Religious</option><option>NGO</option></select></div><div class="fg"><label>Dietary</label><select><option>None</option><option>Strict Veg</option><option>Jain</option><option>Vegan</option><option>Gluten-Free</option></select></div></div>
-  <div class="fr"><div class="fg"><label>Primary Karyakar</label><select id="addDigKar"><option>No karyakars available</option></select></div><div class="fg"><label>Interest Tags</label><input placeholder="Healthcare, Youth…"></div></div>
-  <div class="fg" style="margin-bottom:18px"><label>Protocol Notes</label><textarea placeholder="Spouse, seating, greeting…"></textarea></div>
+  <div class="fr"><div class="fg"><label>Category</label><select id="digCat"><option>Government</option><option>Corporate</option><option>Academic</option><option>Religious</option><option>NGO</option></select></div><div class="fg"><label>Dietary</label><select id="digDiet"><option>None</option><option>Strict Veg</option><option>Jain</option><option>Vegan</option><option>Gluten-Free</option></select></div></div>
+  <div class="fr"><div class="fg"><label>Primary Karyakar</label><select id="addDigKar"><option>No karyakars available</option></select></div><div class="fg"><label>Interest Tags</label><input id="digInterestTags" placeholder="Healthcare, Youth…"></div></div>
+  <div class="fg" style="margin-bottom:18px"><label>Protocol Notes</label><textarea id="digProtocol" placeholder="Spouse, seating, greeting…"></textarea></div>
   <div class="bg"><button class="btn btn-p" onclick="saveDig()">Save</button><button class="btn btn-o" onclick="closeM('addDig')">Cancel</button></div>
 </div></div></div>
 
@@ -984,21 +986,25 @@ function mapUserFromApi(u){
 }
 function mapDigFromApi(d){
   const n=splitName(d.full_name);
+  const kar=String(d.karyakar_name!=null?d.karyakar_name:'').trim();
   return {
     id:Number(d.id),
     dbId:Number(d.id),
-    pre:'',
+    pre:d.salutation||'',
     fn:n.fn,
     ln:n.ln,
-    pn:'',
+    pn:d.post_nominals||'',
     des:d.designation||'',
     org:d.organization||'',
-    cat:'Government',
-    k:'Unassigned',
+    cat:d.category||'Government',
+    k:kar||'Unassigned',
     lc:'—',
     st:'Active',
     email:d.email||'',
-    wa:'',
+    wa:d.phone||'',
+    dietary:d.dietary||'',
+    interestTags:d.interest_tags||'',
+    protocolNotes:d.protocol_notes||'',
     createdAt:d.created_at||''
   };
 }
@@ -1207,7 +1213,7 @@ function waDigits(v){
   return digits.startsWith('00')?digits.slice(2):digits;
 }
 function waUrl(d){
-  const num=waDigits(d?.wa||d?.pn||'');
+  const num=waDigits(d?.wa||'');
   return num?`https://wa.me/${num}`:'';
 }
 function commTypeKey(t){
@@ -2079,13 +2085,22 @@ async function saveDig(){
   };
   if(DIG.some(d=>digKey(d)===digKey(next))){toast('Duplicate dignitary skipped');return;}
   try{
+    const karRaw=(document.getElementById('addDigKar').value||'').trim();
     await apiRequest('/api/dignitaries',{
       method:'POST',
       body:JSON.stringify({
         fullName:`${next.fn} ${next.ln}`.trim(),
         email:next.email,
         designation:next.des,
-        organization:next.org
+        organization:next.org,
+        phone:next.wa,
+        category:next.cat,
+        karyakarName:karRaw,
+        salutation:document.getElementById('digSal')?.value||'',
+        postNominals:(document.getElementById('digPostNom')?.value||'').trim(),
+        dietary:document.getElementById('digDiet')?.value||'',
+        interestTags:(document.getElementById('digInterestTags')?.value||'').trim(),
+        protocolNotes:(document.getElementById('digProtocol')?.value||'').trim()
       })
     });
     await syncBackendData();
@@ -2116,17 +2131,19 @@ function importDigs(){
     const category=CT[cat]?cat:'Government';
     return {
     id:Date.now()+Math.floor(Math.random()*100000),
-    pre:'',
+    pre:val(r,['salutation','prefix']),
     fn:parts[0]||'',
     ln:parts.slice(1).join(' ')||'',
-    pn:'',
-    des:val(r,['designation','role','title','position']),
+    pn:val(r,['postnominals','postnominal','credentials','suffix','degrees']),
+    des:val(r,['designation','role','jobtitle','position']),
     org:val(r,['organization','organisation','company','institution']),
     cat:category,
     k:val(r,['karyakar','owner','assignedto'])||'Unassigned',
     lc:'—',
     st:val(r,['status'])||'Active',
-    // Map common Excel/CSV email header variants to backend "email".
+    dietary:val(r,['dietary','diet','meal']),
+    interestTags:val(r,['interesttags','tags','interests','topics']),
+    protocolNotes:val(r,['protocolnotes','protocol','notes']),
     email:val(r,['email','mail','emailaddress','officialemail','workemail','companyemail','emailid','e-mail']),
     wa:val(r,['whatsapp','whatsappnumber','whatsappno','phone','phonenumber','mobile','mobilenumber','contact','contactnumber'])
     };
@@ -2136,7 +2153,15 @@ function importDigs(){
       fullName:`${x?.fn||''} ${x?.ln||''}`.trim(),
       email:String(x?.email||'').trim().toLowerCase(),
       designation:String(x?.des||'').trim(),
-      organization:String(x?.org||'').trim()
+      organization:String(x?.org||'').trim(),
+      phone:String(x?.wa||'').trim(),
+      category:x?.cat||'Government',
+      karyakarName:String(x?.k||'').trim(),
+      salutation:String(x?.pre||'').trim(),
+      postNominals:String(x?.pn||'').trim(),
+      dietary:String(x?.dietary||'').trim(),
+      interestTags:String(x?.interestTags||'').trim(),
+      protocolNotes:String(x?.protocolNotes||'').trim()
     }));
     const result=await apiRequest('/api/dignitaries/import',{
       method:'POST',
@@ -2435,9 +2460,10 @@ function renderDig(list){
   dedupeDigs();
   const waSvg=`<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.5 3.5A11.5 11.5 0 0 0 2.7 17.6L2 22l4.6-1.2A11.5 11.5 0 0 0 20.5 3.5Zm-8.9 18a9.5 9.5 0 0 1-4.8-1.3l-.3-.2-2.8.8.7-2.7-.2-.3a9.5 9.5 0 1 1 7.4 3.7Zm5.5-7.1c-.3-.1-1.7-.8-2-1s-.5-.1-.7.2-.8 1-1 1.2-.4.2-.7.1a7.8 7.8 0 0 1-2.3-1.4 8.6 8.6 0 0 1-1.6-2c-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.4 0-.5s-.7-1.7-1-2.3c-.3-.6-.6-.5-.7-.5h-.6c-.2 0-.5.1-.7.3s-1 1-1 2.5 1 3 1.2 3.2 2 3.2 4.9 4.5c.7.3 1.3.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 2-1.3.2-.6.2-1.2.2-1.3s-.2-.2-.5-.3Z"/></svg>`;
   const base=role==='admin'?DIG:roleScopedDigs();
-  const d=sortDigsAZ(list||base);document.getElementById('dBody').innerHTML=d.map(x=>{const u=waUrl(x);return `<tr>
+  const d=sortDigsAZ(list||base);document.getElementById('dBody').innerHTML=d.map(x=>{const u=waUrl(x);const ph=(x.wa||'').trim();return `<tr>
     <td><strong>${x.pre} ${x.fn} ${x.ln}</strong>${x.pn?` <span style="color:var(--text-muted);font-size:.78rem">${x.pn}</span>`:''}</td>
     <td style="font-size:.82rem">${x.des}</td><td style="font-size:.82rem">${x.org}</td>
+    <td style="font-size:.82rem">${ph?escapeHtml(ph):'—'}</td>
     <td><span class="tag ${CT[x.cat]||''}">${x.cat}</span></td><td style="font-size:.82rem">${x.k}</td>
     <td style="font-size:.82rem">${x.lc}</td><td><span class="sd ${x.st==='Active'?'sd-a':'sd-i'}"></span>${x.st}</td>
     <td><div class="bg nw"><button class="btn btn-sm btn-o" onclick="viewDig(${x.id})">👁</button>${u?`<a class="btn btn-sm btn-w" href="${u}" target="_blank" rel="noopener noreferrer" title="Open WhatsApp" aria-label="Open WhatsApp">${waSvg}</a>`:`<button class="btn btn-sm btn-w" onclick="toast('No WhatsApp number','ts')" title="No WhatsApp number" aria-label="No WhatsApp number">${waSvg}</button>`}${role==='admin'?`<button class="btn btn-sm btn-o" onclick="deleteDig(${x.id})" title="Delete dignitary" aria-label="Delete dignitary">🗑</button>`:''}</div></td></tr>`}).join('');
@@ -2466,6 +2492,7 @@ function fmtDigCreatedHtml(raw){
 function fillViewDigPanel(d){
   const el=document.getElementById('viewDigPanel');
   if(!el)return;
+  const dash='<span class="dig-muted">—</span>';
   const name=`${d.pre?d.pre+' ':''}${d.fn||''} ${d.ln||''}`.trim()||'—';
   const initial=(()=>{
     const t=`${d.fn||''}${d.ln||''}`.trim();
@@ -2474,15 +2501,25 @@ function fillViewDigPanel(d){
   const email=String(d.email||'').trim();
   const emailRow=email
     ? `<a href="mailto:${escapeHtml(email)}" class="dig-email">${escapeHtml(email)}</a>`
-    : '<span class="dig-muted">—</span>';
+    : dash;
+  const phone=String(d.wa||'').trim();
+  const phoneRow=phone?escapeHtml(phone):dash;
   const rows=[
-    ['Email',emailRow],
-    ['Designation',d.des?escapeHtml(d.des):'<span class="dig-muted">—</span>'],
-    ['Organization',d.org?escapeHtml(d.org):'<span class="dig-muted">—</span>'],
+    ['Salutation',d.pre?escapeHtml(d.pre):dash],
+    ['Post-nominals',d.pn?escapeHtml(d.pn):dash],
+    ['First name',d.fn?escapeHtml(d.fn):dash],
+    ['Last name',d.ln?escapeHtml(d.ln):dash],
+    ['Designation',d.des?escapeHtml(d.des):dash],
+    ['Organization',d.org?escapeHtml(d.org):dash],
+    ['Official email',emailRow],
+    ['WhatsApp',phoneRow],
     ['Category',`<span class="tag ${CT[d.cat]||''}">${escapeHtml(d.cat||'—')}</span>`],
-    ['Karyakar',d.k?escapeHtml(d.k):'<span class="dig-muted">—</span>'],
-    ['Last contact',d.lc&&d.lc!=='—'?escapeHtml(d.lc):'<span class="dig-muted">—</span>'],
-    ['Status',d.st?escapeHtml(d.st):'<span class="dig-muted">—</span>'],
+    ['Dietary',d.dietary?escapeHtml(d.dietary):dash],
+    ['Primary Karyakar',d.k&&d.k!=='Unassigned'?escapeHtml(d.k):dash],
+    ['Interest tags',d.interestTags?escapeHtml(d.interestTags):dash],
+    ['Protocol notes',d.protocolNotes?`<div class="dig-multiline">${escapeHtml(d.protocolNotes)}</div>`:dash],
+    ['Last contact',d.lc&&d.lc!=='—'?escapeHtml(d.lc):dash],
+    ['Status',d.st?escapeHtml(d.st):dash],
     ['Added on',fmtDigCreatedHtml(d.createdAt)]
   ];
   const comms=commsForDignitary(d).slice(0,8);
@@ -2492,6 +2529,7 @@ function fillViewDigPanel(d){
   el.innerHTML=`<div class="dig-profile">
     <div class="dig-profile-avatar" aria-hidden="true">${escapeHtml(initial)}</div>
     <h4 class="dig-profile-name">${escapeHtml(name)}</h4>
+    ${d.pn?`<p class="dig-profile-sub">${escapeHtml(d.pn)}</p>`:''}
     <div class="dig-profile-grid">${rows.map(([lab,val])=>`<div class="dig-profile-row"><span class="dig-l">${escapeHtml(lab)}</span><div class="dig-v">${val}</div></div>`).join('')}</div>
     <div class="dig-profile-section">
       <h4 class="dig-profile-section-title">Recent activity</h4>
@@ -2524,7 +2562,10 @@ async function deleteDig(id){
 function filterDig(){
   const s=document.getElementById('dSearch').value.toLowerCase(),c=document.getElementById('fCat').value,st=document.getElementById('fSt').value,k=(document.getElementById('digKarFilter')?.value||'');
   const src=role==='admin'?DIG:roleScopedDigs();
-  renderDig(src.filter(x=>(x.fn+' '+x.ln+' '+x.org+' '+x.des).toLowerCase().includes(s)&&(!c||x.cat===c)&&(!st||x.st===st)&&(!k||x.k===k)));
+  renderDig(src.filter(x=>{
+    const hay=(x.fn+' '+x.ln+' '+x.org+' '+x.des+' '+(x.wa||'')+' '+(x.pn||'')).toLowerCase();
+    return hay.includes(s)&&(!c||x.cat===c)&&(!st||x.st===st)&&(!k||x.k===k);
+  }));
 }
 document.getElementById('fCat').addEventListener('change',filterDig);document.getElementById('fSt').addEventListener('change',filterDig);document.getElementById('digKarFilter').addEventListener('change',filterDig);
 
@@ -2644,7 +2685,7 @@ function globalSearchItems(q){
   const digSource=role==='admin'?DIG:roleScopedDigs();
   digSource.forEach((d)=>{
     const name=`${d.fn||''} ${d.ln||''}`.trim();
-    const hay=`${name} ${d.org||''} ${d.des||''}`.toLowerCase();
+    const hay=`${name} ${d.org||''} ${d.des||''} ${d.wa||''} ${d.pn||''} ${d.pre||''} ${d.interestTags||''}`.toLowerCase();
     if(hay.includes(s))items.push({kind:'dignitary',label:name||'Dignitary',sub:d.org||d.des||'—',digId:d.id});
   });
   EVTS.forEach((e,i)=>{

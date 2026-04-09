@@ -220,7 +220,9 @@ app.post("/api/users", async (req, res) => {
 app.get("/api/dignitaries", async (_req, res) => {
   try {
     const result = await db.query(
-      "SELECT id, full_name, email, designation, organization, created_at FROM dignitaries ORDER BY id DESC"
+      `SELECT id, full_name, email, designation, organization, phone, category, karyakar_name,
+              salutation, post_nominals, dietary, interest_tags, protocol_notes, created_at
+       FROM dignitaries ORDER BY id DESC`
     );
     return res.json(result.rows);
   } catch {
@@ -229,18 +231,52 @@ app.get("/api/dignitaries", async (_req, res) => {
 });
 
 app.post("/api/dignitaries", async (req, res) => {
-  const { fullName, email, designation, organization } = req.body || {};
+  const {
+    fullName,
+    email,
+    designation,
+    organization,
+    phone,
+    category,
+    karyakarName,
+    salutation,
+    postNominals,
+    dietary,
+    interestTags,
+    protocolNotes,
+  } = req.body || {};
   if (!fullName || !email) return badRequest(res, "fullName and email are required.");
   if (!isEmail(email)) return badRequest(res, "Invalid email.");
 
+  const phoneVal = cleanText(phone || "", 40);
+  let cat = cleanText(category || "", 40);
+  if (!cat) cat = "Government";
+  const kar = cleanText(karyakarName || "", 120);
+  const sal = cleanText(salutation || "", 40);
+  const postN = cleanText(postNominals || "", 120);
+  const diet = cleanText(dietary || "", 80);
+  const tags = cleanText(interestTags || "", 500);
+  const proto = cleanText(protocolNotes || "", 2000);
+
   try {
     const result = await db.query(
-      "INSERT INTO dignitaries (full_name, email, designation, organization) VALUES ($1, $2, $3, $4) RETURNING *",
+      `INSERT INTO dignitaries (
+         full_name, email, designation, organization, phone, category, karyakar_name,
+         salutation, post_nominals, dietary, interest_tags, protocol_notes
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [
         cleanText(fullName, 120),
         cleanText(email, 180).toLowerCase(),
         cleanText(designation, 120),
         cleanText(organization, 160),
+        phoneVal || null,
+        cat,
+        kar || null,
+        sal || null,
+        postN || null,
+        diet || null,
+        tags || null,
+        proto || null,
       ]
     );
     return res.status(201).json(result.rows[0]);
@@ -272,6 +308,15 @@ app.post("/api/dignitaries/import", async (req, res) => {
     const designation = cleanText(raw.designation || "", 120);
     const organization = cleanText(raw.organization || "", 160);
     const rawEmail = cleanText(raw.email || "", 180).toLowerCase();
+    const phone = cleanText(raw.phone || raw.whatsapp || "", 40);
+    let category = cleanText(raw.category || "", 40);
+    if (!category) category = "Government";
+    const karyakarName = cleanText(raw.karyakarName || raw.karyakar || "", 120);
+    const salutation = cleanText(raw.salutation || raw.title || "", 40);
+    const postNominals = cleanText(raw.postNominals || raw.postnominals || raw.credentials || "", 120);
+    const dietary = cleanText(raw.dietary || "", 80);
+    const interestTags = cleanText(raw.interestTags || raw.tags || raw.interests || "", 500);
+    const protocolNotes = cleanText(raw.protocolNotes || raw.notes || "", 2000);
 
     // Skip totally blank rows (prevents creating fake "Imported Dignitary N" records)
     if (!fullName && !designation && !organization && !rawEmail) {
@@ -295,8 +340,25 @@ app.post("/api/dignitaries/import", async (req, res) => {
       const tryEmail = attempt === 0 ? email : `${email.split("@")[0]}+${attempt}@${email.split("@")[1] || "import.prasar.local"}`;
       try {
         const result = await db.query(
-          "INSERT INTO dignitaries (full_name, email, designation, organization) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING RETURNING id",
-          [fullName, tryEmail, designation, organization]
+          `INSERT INTO dignitaries (
+             full_name, email, designation, organization, phone, category, karyakar_name,
+             salutation, post_nominals, dietary, interest_tags, protocol_notes
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           ON CONFLICT (email) DO NOTHING RETURNING id`,
+          [
+            fullName,
+            tryEmail,
+            designation,
+            organization,
+            phone || null,
+            category,
+            karyakarName || null,
+            salutation || null,
+            postNominals || null,
+            dietary || null,
+            interestTags || null,
+            protocolNotes || null,
+          ]
         );
         if (result.rows[0]) {
           stats.added++;

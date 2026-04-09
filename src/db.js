@@ -38,6 +38,14 @@ async function init() {
       email TEXT NOT NULL UNIQUE,
       designation TEXT,
       organization TEXT,
+      phone TEXT,
+      category TEXT DEFAULT 'Government',
+      karyakar_name TEXT,
+      salutation TEXT,
+      post_nominals TEXT,
+      dietary TEXT,
+      interest_tags TEXT,
+      protocol_notes TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -62,6 +70,14 @@ async function init() {
     );
 
     ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Government';
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS karyakar_name TEXT;
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS salutation TEXT;
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS post_nominals TEXT;
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS dietary TEXT;
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS interest_tags TEXT;
+    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS protocol_notes TEXT;
   `);
 }
 
