@@ -225,7 +225,13 @@ async function sendEmail(id) {
       body: JSON.stringify({ userId: sender.id }),
     });
     await Promise.all([loadInvitations(), loadCommunications()]);
-    alert(`Email generated locally: ${result.outboxFile}`);
+    if (result.provider === "postmark" && result.messageId) {
+      alert(`Email sent via Postmark. Message ID: ${result.messageId}`);
+    } else if (result.outboxFile) {
+      alert(`Email saved locally: ${result.outboxFile}`);
+    } else {
+      alert("Email queued.");
+    }
   } catch (e) {
     alert(e.message);
   }

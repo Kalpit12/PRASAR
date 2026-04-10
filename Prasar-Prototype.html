@@ -2919,9 +2919,15 @@ function initDC(){
 function chkW(){const t=document.getElementById('menuTog');if(window.innerWidth<=900)t.style.display='inline-flex';else{t.style.display='none';document.getElementById('sidebar').classList.remove('open')}}
 window.addEventListener('resize',chkW);chkW();
 let __reloadHash='';
+function reloadHashFetchInit(){
+  const h={};
+  const k=sessionStorage.getItem('prasarApiKey')||'';
+  if(k)h['x-prasar-api-key']=k;
+  return h;
+}
 async function initAutoReload(){
   try{
-    const r=await fetch('/__reload-hash',{cache:'no-store'});
+    const r=await fetch('/api/reload-hash',{cache:'no-store',headers:reloadHashFetchInit()});
     if(!r.ok)return;
     const j=await r.json();
     __reloadHash=j.hash||'';
@@ -2929,7 +2935,7 @@ async function initAutoReload(){
   }catch(_e){return;}
   const timer=setInterval(async()=>{
     try{
-      const r=await fetch('/__reload-hash',{cache:'no-store'});
+      const r=await fetch('/api/reload-hash',{cache:'no-store',headers:reloadHashFetchInit()});
       if(!r.ok){clearInterval(timer);return;}
       const j=await r.json();
       const h=j.hash||'';

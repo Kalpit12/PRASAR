@@ -21,14 +21,14 @@ Local-first implementation of:
 ## Storage
 
 - SQLite database: `data/prasar.db`
-- Local generated emails: `data/outbox/*.eml`
+- Local generated emails (no Postmark): `data/outbox/*.eml`
 - Backups: `data/backups/*` (encrypted if `PRASAR_BACKUP_KEY` is set)
 
 ## Notes
 
 - Starts with **no demo data**.
 - Create users, dignitaries, and events from the UI first.
-- Email send is local-only (saved as `.eml`), no external provider required.
+- **Postmark (optional):** set `POSTMARK_API_KEY`, `POSTMARK_SENDER_EMAIL` (verified sender in Postmark), and `POSTMARK_SENDER_NAME` to send invitation email for real. Same pattern as AksharJobs. If unset, sends are saved as `.eml` in `data/outbox/`.
 - API routes require `x-prasar-api-key` when `PRASAR_API_KEY` is set.
 - You can still override keys with env vars:
   - `PRASAR_API_KEY`

@@ -101,7 +101,7 @@
           <thead><tr><th>ID</th><th>Dignitary</th><th>Event</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="invBody"></tbody>
         </table>
-        <p class="small">Email send is local-only and stored as .eml in <code>data/outbox</code>.</p>
+        <p class="small">With <code>POSTMARK_API_KEY</code> and sender env vars, invitation email sends via Postmark; otherwise it is saved as .eml in <code>data/outbox</code>.</p>
       </div>
     </section>
 

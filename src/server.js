@@ -10,6 +10,7 @@ const cors = require("cors");
 const nodemailer = require("nodemailer");
 const PDFDocument = require("pdfkit");
 const db = require("./db");
+const postmark = require("./postmark");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -41,6 +42,21 @@ if (!API_KEY) {
 }
 const allowedOrigins = new Set(["http://localhost:3000", "http://127.0.0.1:3000"]);
 if (process.env.RENDER_EXTERNAL_URL) allowedOrigins.add(process.env.RENDER_EXTERNAL_URL);
+if (process.env.ALLOWED_ORIGINS) {
+  for (const o of process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)) {
+    allowedOrigins.add(o);
+  }
+}
+const isProduction = process.env.NODE_ENV === "production";
+/** If "0", browser requests must send x-prasar-api-key (no same-origin bypass). */
+const trustSameOriginWithoutKey = process.env.PRASAR_TRUST_SAME_ORIGIN_WITHOUT_KEY !== "0";
+/** Optional: require this header on POST /api/system/backup (in addition to normal API access). */
+const backupHttpToken = String(process.env.PRASAR_BACKUP_HTTP_TOKEN || "").trim();
+
+if (process.env.TRUST_PROXY === "1" || process.env.RENDER === "true" || isProduction) {
+  app.set("trust proxy", 1);
+}
+
 const backupDir = path.join(__dirname, "..", "data", "backups");
 fs.mkdirSync(backupDir, { recursive: true });
 
@@ -50,6 +66,14 @@ console.log(
   "PRASAR backup key source:",
   process.env.PRASAR_BACKUP_KEY ? "env" : "data/runtime-secrets.json"
 );
+
+function constantTimeCompareStrings(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const ba = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
 
 function requireApiKey(req, res, next) {
   if (!API_KEY) {
@@ -70,15 +94,18 @@ function requireApiKey(req, res, next) {
     (trustedOriginFromReferer && allowedOrigins.has(trustedOriginFromReferer)) ||
     (!origin && (secFetchSite === "same-origin" || secFetchSite === "same-site"));
 
-  const key = req.header("x-prasar-api-key");
-  if (key === API_KEY || trustedOrigin) return next();
+  const key = req.header("x-prasar-api-key") || "";
+  if (constantTimeCompareStrings(key, API_KEY)) return next();
+  if (trustSameOriginWithoutKey && trustedOrigin) return next();
   return res.status(401).json({ error: "Unauthorized." });
 }
 
 app.use(
   helmet({
     contentSecurityPolicy: false,
-    referrerPolicy: { policy: "no-referrer" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    crossOriginResourcePolicy: { policy: "same-site" },
+    hsts: isProduction ? { maxAge: 15552000, includeSubDomains: true } : false,
   })
 );
 app.use(
@@ -88,18 +115,26 @@ app.use(
       return cb(new Error("CORS blocked"));
     },
     methods: ["GET", "POST", "PATCH"],
-    allowedHeaders: ["Content-Type", "x-prasar-api-key"],
+    allowedHeaders: ["Content-Type", "x-prasar-api-key", "x-prasar-backup-token"],
   })
 );
 app.use(
   "/api",
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 500,
+    max: Number(process.env.PRASAR_API_RATE_LIMIT_MAX || 500),
     standardHeaders: true,
     legacyHeaders: false,
   })
 );
+
+const invitationEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.PRASAR_EMAIL_RATE_LIMIT_PER_HOUR || 30),
+  message: { error: "Too many invitation emails. Try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 app.use(express.json({ limit: "256kb" }));
 app.use("/api", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
@@ -114,14 +149,6 @@ app.get("/api/health", (_req, res) => {
 app.use("/api", requireApiKey);
 app.use("/local-app", express.static(path.join(__dirname, "..", "public")));
 app.get("/favicon.ico", (_req, res) => res.status(204).end());
-app.get("/__reload-hash", (_req, res) => {
-  try {
-    const stat = fs.statSync(prototypeFile);
-    res.json({ hash: String(stat.mtimeMs) });
-  } catch {
-    res.status(500).json({ error: "reload hash unavailable" });
-  }
-});
 app.get("/", (_req, res) => {
   res.sendFile(prototypeFile);
 });
@@ -134,6 +161,12 @@ const mailer = nodemailer.createTransport({
   newline: "unix",
   buffer: true,
 });
+
+if (postmark.isConfigured()) {
+  console.log("Email: Postmark enabled (POSTMARK_API_KEY set).");
+} else {
+  console.log("Email: Postmark not configured; invitation emails write to data/outbox (.eml). Set POSTMARK_API_KEY + POSTMARK_SENDER_EMAIL.");
+}
 
 function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -186,6 +219,15 @@ async function createEncryptedBackup() {
 }
 
 // Users
+app.get("/api/reload-hash", (_req, res) => {
+  try {
+    const stat = fs.statSync(prototypeFile);
+    res.json({ hash: String(stat.mtimeMs) });
+  } catch {
+    res.status(500).json({ error: "reload hash unavailable" });
+  }
+});
+
 app.get("/api/users", async (_req, res) => {
   try {
     const result = await db.query("SELECT id, full_name, email, role, status, created_at FROM users ORDER BY id DESC");
@@ -551,7 +593,7 @@ app.get("/api/invitations/:id/pdf", async (req, res) => {
   }
 });
 
-app.post("/api/invitations/:id/send-email", async (req, res) => {
+app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, res) => {
   const { userId } = req.body || {};
   if (!userId) return badRequest(res, "userId is required.");
   const sender = await db.query("SELECT id FROM users WHERE id = $1", [userId]);
@@ -567,6 +609,9 @@ app.post("/api/invitations/:id/send-email", async (req, res) => {
     `, [req.params.id]);
   const invite = inviteResult.rows[0];
   if (!invite) return res.status(404).json({ error: "Invitation not found." });
+  if (!isEmail(invite.email)) {
+    return badRequest(res, "Dignitary email is missing or invalid; cannot send.");
+  }
 
   const subject = `Invitation: ${invite.event_title}`;
   const html = `
@@ -578,24 +623,55 @@ app.post("/api/invitations/:id/send-email", async (req, res) => {
     <strong>Venue:</strong> ${invite.venue}</p>
   `;
 
-  const info = await mailer.sendMail({
-    from: "prasar-local@localhost",
-    to: invite.email,
-    subject,
-    html,
-  });
+  let delivery = { provider: "local", outboxFile: null, messageId: null };
 
-  const emlPath = path.join(outboxDir, `invitation-${invite.id}-${Date.now()}.eml`);
-  fs.writeFileSync(emlPath, info.message);
+  if (postmark.isConfigured()) {
+    const pm = await postmark.sendEmail({
+      to: invite.email,
+      subject,
+      htmlBody: html,
+      tag: "invitation",
+    });
+    if (!pm.success) {
+      if (!isProduction) {
+        console.error("Postmark send failed:", pm.error);
+      } else {
+        console.error("Postmark send failed (details omitted in production).");
+      }
+      return res.status(502).json({
+        error: isProduction ? "Email delivery failed. Try again or contact support." : pm.error || "Postmark send failed.",
+      });
+    }
+    delivery = { provider: "postmark", outboxFile: null, messageId: pm.messageId };
+  } else {
+    const info = await mailer.sendMail({
+      from: "prasar-local@localhost",
+      to: invite.email,
+      subject,
+      html,
+    });
+    const emlPath = path.join(outboxDir, `invitation-${invite.id}-${Date.now()}.eml`);
+    fs.writeFileSync(emlPath, info.message);
+    delivery = { provider: "local", outboxFile: path.basename(emlPath), messageId: null };
+  }
 
   await db.query("UPDATE invitations SET status = 'SENT', sent_at = NOW() WHERE id = $1", [invite.id]);
   const dignitaryIdResult = await db.query("SELECT dignitary_id FROM invitations WHERE id = $1", [invite.id]);
+  const commNote =
+    delivery.provider === "postmark"
+      ? `Invitation email sent via Postmark for ${invite.event_title}`
+      : `Invitation email saved to outbox (${delivery.outboxFile}) for ${invite.event_title}`;
   await db.query(
     "INSERT INTO communications (dignitary_id, user_id, type, notes, happened_at) VALUES ($1, $2, $3, $4, NOW())",
-    [dignitaryIdResult.rows[0].dignitary_id, userId, "EMAIL", `Invitation email generated locally for ${invite.event_title}`]
+    [dignitaryIdResult.rows[0].dignitary_id, userId, "EMAIL", commNote]
   );
 
-  res.json({ ok: true, outboxFile: path.basename(emlPath) });
+  res.json({
+    ok: true,
+    provider: delivery.provider,
+    messageId: delivery.messageId,
+    outboxFile: delivery.outboxFile,
+  });
 });
 
 // Communications
@@ -640,7 +716,13 @@ app.post("/api/communications", async (req, res) => {
   }
 });
 
-app.post("/api/system/backup", async (_req, res) => {
+app.post("/api/system/backup", async (req, res) => {
+  if (backupHttpToken) {
+    const t = String(req.header("x-prasar-backup-token") || "").trim();
+    if (!constantTimeCompareStrings(t, backupHttpToken)) {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+  }
   try {
     const details = await createEncryptedBackup();
     if (!details) return res.status(404).json({ error: "Database backup source not found." });
