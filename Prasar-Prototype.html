@@ -1016,7 +1016,7 @@ function mapEventFromApi(e){
     date:e.event_date||'',
     time:e.event_time||'',
     venue:e.venue||'',
-    desc:'',
+    desc:e.description||'',
     createdBy:'Admin User'
   };
 }
@@ -2214,7 +2214,8 @@ async function saveEvt(){
         title:document.getElementById('evtName').value.trim(),
         eventDate:document.getElementById('evtDate').value,
         eventTime:time,
-        venue:document.getElementById('evtVenue').value.trim()
+        venue:document.getElementById('evtVenue').value.trim(),
+        description:(document.getElementById('evtDesc').value||'').trim()
       })
     });
     await syncBackendData();
@@ -2235,18 +2236,25 @@ function openEditEvt(i){
   document.getElementById('eeDesc').value=e.desc||'';
   openM('editEvt');
 }
-function saveEvtEdits(){
+async function saveEvtEdits(){
   if(editEvtIdx<0)return;
   if(!validateModal('editEvt'))return;
   const e=EVTS[editEvtIdx];if(!e){toast('Event not found');return;}
-  e.name=document.getElementById('eeName').value.trim();
-  e.date=document.getElementById('eeDate').value;
+  if(!e.dbId){toast('Event cannot be updated');return;}
   const time=buildTime12(document.getElementById('eeTime').value,document.getElementById('eeAmpm').value);
   if(!time){toast('Invalid time. Use hh:mm');return;}
-  e.time=time;
-  e.venue=document.getElementById('eeVenue').value.trim();
-  e.desc=(document.getElementById('eeDesc').value||'').trim();
-  persistData();renderEvents();refreshInviteSelectors();closeM('editEvt');toast('Event updated','ts');
+  const payload={
+    title:document.getElementById('eeName').value.trim(),
+    eventDate:document.getElementById('eeDate').value,
+    eventTime:time,
+    venue:document.getElementById('eeVenue').value.trim(),
+    description:(document.getElementById('eeDesc').value||'').trim()
+  };
+  try{
+    await apiRequest('/api/events/'+e.dbId,{method:'PATCH',body:JSON.stringify(payload)});
+    await syncBackendData();
+    renderEvents();refreshInviteSelectors();closeM('editEvt');toast('Event updated','ts');
+  }catch(err){toast(err.message||'Failed to update event');}
 }
 async function saveInt(){
   if(!validateModal('logInt'))return;

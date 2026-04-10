@@ -87,7 +87,7 @@ app.use(
       if (!origin || allowedOrigins.has(origin)) return cb(null, true);
       return cb(new Error("CORS blocked"));
     },
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PATCH"],
     allowedHeaders: ["Content-Type", "x-prasar-api-key"],
   })
 );
@@ -398,7 +398,9 @@ app.delete("/api/dignitaries/:id", async (req, res) => {
 // Events
 app.get("/api/events", async (_req, res) => {
   try {
-    const result = await db.query("SELECT id, title, event_date, event_time, venue, created_at FROM events ORDER BY event_date DESC");
+    const result = await db.query(
+      "SELECT id, title, event_date, event_time, venue, description, created_at FROM events ORDER BY event_date DESC"
+    );
     return res.json(result.rows);
   } catch {
     return res.status(500).json({ error: "Failed to load events." });
@@ -406,20 +408,55 @@ app.get("/api/events", async (_req, res) => {
 });
 
 app.post("/api/events", async (req, res) => {
-  const { title, eventDate, eventTime, venue } = req.body || {};
+  const { title, eventDate, eventTime, venue, description } = req.body || {};
   if (!title || !eventDate || !venue) {
     return badRequest(res, "title, eventDate, and venue are required.");
   }
   try {
-    const result = await db.query("INSERT INTO events (title, event_date, event_time, venue) VALUES ($1, $2, $3, $4) RETURNING *", [
-      cleanText(title, 160),
-      eventDate,
-      cleanText(eventTime || "", 20),
-      cleanText(venue, 180),
-    ]);
+    const result = await db.query(
+      "INSERT INTO events (title, event_date, event_time, venue, description) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [
+        cleanText(title, 160),
+        eventDate,
+        cleanText(eventTime || "", 20),
+        cleanText(venue, 180),
+        typeof description === "string" ? cleanText(description, 4000) : "",
+      ]
+    );
     return res.status(201).json(result.rows[0]);
   } catch {
     return res.status(500).json({ error: "Failed to create event." });
+  }
+});
+
+app.patch("/api/events/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const { title, eventDate, eventTime, venue, description } = req.body || {};
+  if (!Number.isInteger(id) || id < 1) {
+    return badRequest(res, "Invalid event id.");
+  }
+  if (!title || !eventDate || !venue) {
+    return badRequest(res, "title, eventDate, and venue are required.");
+  }
+  try {
+    const result = await db.query(
+      `UPDATE events SET title = $1, event_date = $2, event_time = $3, venue = $4, description = $5
+       WHERE id = $6 RETURNING *`,
+      [
+        cleanText(title, 160),
+        eventDate,
+        cleanText(eventTime || "", 20),
+        cleanText(venue, 180),
+        typeof description === "string" ? cleanText(description, 4000) : "",
+        id,
+      ]
+    );
+    if (!result.rowCount) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+    return res.json(result.rows[0]);
+  } catch {
+    return res.status(500).json({ error: "Failed to update event." });
   }
 });
 

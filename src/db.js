@@ -70,6 +70,7 @@ async function init() {
     );
 
     ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Government';
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS karyakar_name TEXT;
