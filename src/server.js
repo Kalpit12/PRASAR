@@ -86,10 +86,11 @@ function hashUserPassword(plain) {
 function verifyUserPassword(plain, stored) {
   if (typeof stored !== "string" || !stored.startsWith("v1$")) return false;
   const parts = stored.split("$");
-  if (parts.length !== 4) return false;
+  /** Format: v1$<saltBase64>$<hashBase64> → ["v1", salt, hash] */
+  if (parts.length < 3) return false;
   try {
-    const salt = Buffer.from(parts[2], "base64");
-    const expected = Buffer.from(parts[3], "base64");
+    const salt = Buffer.from(parts[1], "base64");
+    const expected = Buffer.from(parts[2], "base64");
     const hash = crypto.scryptSync(String(plain), salt, 64, SCRYPT_OPTS);
     if (hash.length !== expected.length) return false;
     return crypto.timingSafeEqual(hash, expected);
