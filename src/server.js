@@ -75,7 +75,8 @@ function constantTimeCompareStrings(a, b) {
   return crypto.timingSafeEqual(ba, bb);
 }
 
-const SCRYPT_OPTS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+/** Omit maxmem so Node uses its default (portable on small Render instances). */
+const SCRYPT_OPTS = { N: 16384, r: 8, p: 1 };
 function hashUserPassword(plain) {
   const salt = crypto.randomBytes(16);
   const hash = crypto.scryptSync(String(plain), salt, 64, SCRYPT_OPTS);
@@ -191,7 +192,7 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
       result = await db.query(
         `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
          FROM users
-         WHERE role = 'KARYAKAR' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
+         WHERE UPPER(TRIM(role)) = 'KARYAKAR' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
          LIMIT 1`,
         [identifier]
       );
@@ -200,20 +201,36 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
       result = await db.query(
         `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
          FROM users
-         WHERE role = 'KARYAKAR'
+         WHERE UPPER(TRIM(role)) = 'KARYAKAR'
            AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
          LIMIT 1`,
         [nameKey]
       );
     }
     const row = result.rows[0];
-    if (!row || row.role !== "KARYAKAR") {
+    if (!row || String(row.role || "").trim().toUpperCase() !== "KARYAKAR") {
       return res.status(401).json({ error: "Invalid email or password." });
     }
     if (row.status === "INACTIVE") {
       return res.status(403).json({ error: "This account is inactive. Contact an administrator." });
     }
-    if (!row.password_hash || !verifyUserPassword(password, row.password_hash)) {
+    const phRaw = row.password_hash;
+    if (phRaw == null || String(phRaw).trim() === "") {
+      return res.status(401).json({
+        error:
+          "No login password is saved for this account yet. An admin must open User Management → Edit this user, set “New login password”, and Save.",
+        code: "PASSWORD_NOT_SET",
+      });
+    }
+    const ph = String(phRaw);
+    if (!ph.startsWith("v1$")) {
+      return res.status(401).json({
+        error:
+          "The saved password is not in PRASAR format (often happens if it was typed only in Supabase). An admin must set the password again in User Management → Edit.",
+        code: "PASSWORD_UNSUPPORTED_FORMAT",
+      });
+    }
+    if (!verifyUserPassword(password, row.password_hash)) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
     return res.json({
