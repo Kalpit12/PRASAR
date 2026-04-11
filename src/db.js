@@ -79,6 +79,10 @@ async function init() {
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS dietary TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS interest_tags TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS protocol_notes TEXT;
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_area TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
   `);
 }
 

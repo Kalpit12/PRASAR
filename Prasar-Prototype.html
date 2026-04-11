@@ -393,7 +393,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <div class="remember-row"><input type="checkbox" id="rememberMe" checked><label for="rememberMe">Remember me</label></div>
   <button class="login-btn" onclick="doLogin()">Enter PRASAR →</button>
 </div>
-<div class="login-ft">BAPS Swaminarayan Sanstha · Africa Region · v1.0</div>
+<div class="login-ft">BAPS Swaminarayan Sanstha · Africa Region · v1.0<br><span style="display:block;margin-top:8px;line-height:1.45"><strong>Admin:</strong> username <code>admin</code>, password <code>admin123</code>.<br><strong>Karyakar:</strong> use your <strong>email</strong> and the password an admin set for you (User Management → Edit). Legacy demo: <code>karyakar</code> / <code>karyakar123</code>.</span></div>
 </div>
 </div>
 
@@ -849,7 +849,9 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <div class="fr"><div class="fg"><label>First Name *</label><input id="karFn" data-req="true"></div><div class="fg"><label>Last Name *</label><input id="karLn" data-req="true"></div></div>
   <div class="fr"><div class="fg"><label>Email *</label><input id="karEmail" type="email" data-req="true"></div><div class="fg"><label>Phone *</label><input id="karPhone" data-req="true" placeholder="+254..."></div></div>
   <div class="fr"><div class="fg"><label>Role</label><select id="karRole"><option>Karyakar</option><option>Usher</option></select></div><div class="fg"><label>Status</label><select id="karStatus"><option>Active</option><option>Inactive</option></select></div></div>
-  <div class="fg" style="margin-bottom:18px"><label>Assigned Area</label><input id="karArea" placeholder="Region / Mandal / City"></div>
+  <div class="fg" style="margin-bottom:14px"><label>Assigned Area</label><input id="karArea" placeholder="Region / Mandal / City"></div>
+  <div class="fr"><div class="fg"><label>Login password *</label><input id="karPass" type="password" autocomplete="new-password" placeholder="Min. 8 characters" minlength="8" data-req="true"></div><div class="fg"><label>Confirm password *</label><input id="karPass2" type="password" autocomplete="new-password" placeholder="Repeat password" minlength="8" data-req="true"></div></div>
+  <p style="font-size:.74rem;color:var(--text-muted);margin:0 0 8px">They will sign in with <strong>email</strong> + this password (PR Karyakar role on the login screen).</p>
   <div class="bg"><button class="btn btn-p" onclick="saveKar()">Create</button><button class="btn btn-o" onclick="closeM('addKar')">Cancel</button></div>
 </div></div></div>
 
@@ -913,9 +915,10 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 
 <div class="mo" id="m-editUser"><div class="modal"><div class="mh"><h3>Edit User</h3><button class="mc" onclick="closeM('editUser')">✕</button></div><div class="mb">
   <div class="fg" style="margin-bottom:14px"><label>Full Name *</label><input id="euName" data-req="true"></div>
-  <div class="fr"><div class="fg"><label>Email *</label><input id="euEmail" type="email" data-req="true"></div><div class="fg"><label>Phone *</label><input id="euPhone" data-req="true"></div></div>
-  <div class="fr"><div class="fg"><label>Role</label><select id="euRole"><option>Karyakar</option><option>Usher</option></select></div><div class="fg"><label>Status</label><select id="euStatus"><option>Active</option><option>Inactive</option></select></div></div>
-  <div class="fg" style="margin-bottom:18px"><label>Assigned Area</label><input id="euArea" placeholder="Region / Mandal / City"></div>
+  <div class="fr"><div class="fg"><label>Email *</label><input id="euEmail" type="email" data-req="true"></div><div class="fg"><label>Phone</label><input id="euPhone" placeholder="Optional"></div></div>
+  <div class="fr"><div class="fg"><label>Role</label><select id="euRole"><option>Admin</option><option>Karyakar</option><option>Usher</option></select></div><div class="fg"><label>Status</label><select id="euStatus"><option>Active</option><option>Inactive</option></select></div></div>
+  <div class="fg" style="margin-bottom:14px"><label>Assigned Area</label><input id="euArea" placeholder="Region / Mandal / City"></div>
+  <div class="fg" style="margin-bottom:18px"><label>New login password</label><input id="euPass" type="password" autocomplete="new-password" placeholder="Leave blank to keep current (min. 8 if changing)"></div>
   <div class="bg"><button class="btn btn-p" onclick="saveUserEdits()">Save</button><button class="btn btn-o" onclick="closeM('editUser')">Cancel</button></div>
 </div></div></div>
 
@@ -994,9 +997,14 @@ function mapUserFromApi(u){
     email:u.email||'',
     role:u.role==='KARYAKAR'?'Karyakar':'Admin',
     status:u.status==='INACTIVE'?'Inactive':'Active',
-    phone:'',
-    area:''
+    phone:u.phone||'',
+    area:u.assigned_area||''
   };
+}
+function userRoleToApi(displayRole){
+  const r=String(displayRole||'').trim();
+  if(r==='Admin')return 'ADMIN';
+  return 'KARYAKAR';
 }
 function mapDigFromApi(d){
   const n=splitName(d.full_name);
@@ -2363,32 +2371,58 @@ function openEditUser(i){
   document.getElementById('euName').value=u.name||'';
   document.getElementById('euEmail').value=u.email||'';
   document.getElementById('euPhone').value=u.phone||'';
-  document.getElementById('euRole').value=u.role||'Karyakar';
+  const rr=u.role==='Admin'?'Admin':(u.role==='Usher'?'Usher':'Karyakar');
+  document.getElementById('euRole').value=rr;
   document.getElementById('euStatus').value=u.status||'Active';
   document.getElementById('euArea').value=u.area||'';
+  const ep=document.getElementById('euPass');if(ep)ep.value='';
   openM('editUser');
 }
-function saveUserEdits(){
+async function saveUserEdits(){
   if(editUserIdx<0)return;
   if(!validateModal('editUser'))return;
   const u=USERS[editUserIdx];if(!u)return;
   const nextEmail=document.getElementById('euEmail').value.trim().toLowerCase();
   if(USERS.some((x,idx)=>idx!==editUserIdx && x.email===nextEmail)){toast('Email already exists');return;}
-  u.name=document.getElementById('euName').value.trim();
-  u.email=nextEmail;
-  u.phone=document.getElementById('euPhone').value.trim();
-  u.role=document.getElementById('euRole').value;
-  u.status=document.getElementById('euStatus').value;
-  u.area=document.getElementById('euArea').value.trim();
-  persistUsers();
-  renderUsers();
-  closeM('editUser');
-  toast('User updated','ts');
+  const newPass=(document.getElementById('euPass')?.value||'').trim();
+  if(newPass&&newPass.length<8){toast('Password must be at least 8 characters');return;}
+  const payload={
+    fullName:document.getElementById('euName').value.trim(),
+    email:nextEmail,
+    role:userRoleToApi(document.getElementById('euRole').value),
+    status:document.getElementById('euStatus').value==='Inactive'?'INACTIVE':'ACTIVE',
+    phone:document.getElementById('euPhone').value.trim(),
+    assignedArea:document.getElementById('euArea').value.trim()
+  };
+  if(newPass)payload.password=newPass;
+  try{
+    if(u.dbId){
+      await apiRequest('/api/users/'+u.dbId,{method:'PATCH',body:JSON.stringify(payload)});
+      await syncBackendData();
+    }else{
+      u.name=payload.fullName;
+      u.email=payload.email;
+      u.phone=payload.phone;
+      u.role=document.getElementById('euRole').value;
+      u.status=document.getElementById('euStatus').value;
+      u.area=payload.assignedArea;
+      persistUsers();
+    }
+    const ep=document.getElementById('euPass');if(ep)ep.value='';
+    renderUsers();
+    syncKaryakarOptions();
+    closeM('editUser');
+    toast('User updated','ts');
+  }catch(e){toast(e.message||'Failed to update user');}
 }
 async function saveKar(){
   if(!validateModal('addKar'))return;
   const name=`${document.getElementById('karFn').value.trim()} ${document.getElementById('karLn').value.trim()}`.trim();
   const email=document.getElementById('karEmail').value.trim().toLowerCase();
+  const p1=document.getElementById('karPass')?.value||'';
+  const p2=document.getElementById('karPass2')?.value||'';
+  if(p1.length<8){toast('Password must be at least 8 characters');return;}
+  if(p1!==p2){toast('Passwords do not match');return;}
   if(USERS.some(u=>u.email===email)){toast('Email already exists');return;}
   try{
     await apiRequest('/api/users',{
@@ -2397,14 +2431,19 @@ async function saveKar(){
         fullName:name,
         email,
         role:'KARYAKAR',
-        status:document.getElementById('karStatus').value==='Inactive'?'INACTIVE':'ACTIVE'
+        status:document.getElementById('karStatus').value==='Inactive'?'INACTIVE':'ACTIVE',
+        phone:document.getElementById('karPhone').value.trim(),
+        assignedArea:document.getElementById('karArea').value.trim(),
+        password:p1
       })
     });
     await syncBackendData();
     renderUsers();
     refreshInviteSelectors();
     closeM('addKar');
-    toast('Karyakar created!','ts');
+    document.getElementById('karPass').value='';
+    document.getElementById('karPass2').value='';
+    toast('Karyakar created! Share their email and password so they can log in.','ts');
   }catch(e){toast(e.message||'Failed to create karyakar');}
 }
 function saveGift(){if(!validateModal('logGift'))return;closeM('logGift');toast('Gift logged','ts')}
@@ -2623,43 +2662,115 @@ function enhanceUI(){
     setTimeout(()=>el.classList.add('on'),Math.min(550,60*i));
   });
 }
+function shakeLogin(){
+  document.querySelector('.login-card').animate([{transform:'translateX(0)'},{transform:'translateX(-8px)'},{transform:'translateX(8px)'},{transform:'translateX(0)'}],{duration:250,easing:'ease-out'});
+}
 async function doLogin(){
   if(!USERS.length)hydrateUsers();
   role=document.getElementById('loginRole').value;
   const u=(document.getElementById('loginUser').value||'').trim();
   const p=document.getElementById('loginPass').value||'';
-  const kMatch=USERS.find(x=>{
-    const isK=(x.role==='Karyakar'||x.role==='Usher') && x.status!=='Inactive';
-    const uu=u.toLowerCase();
-    return isK && (String(x.email||'').toLowerCase()===uu || String(x.name||'').toLowerCase()===uu);
-  });
-  const ok=(role==='admin'&&u==='admin'&&p==='admin123')||(role==='karyakar'&&((u==='karyakar'&&p==='karyakar123')||(!!kMatch&&p==='karyakar123')));
-  if(!ok){
-    document.querySelector('.login-card').animate([{transform:'translateX(0)'},{transform:'translateX(-8px)'},{transform:'translateX(8px)'},{transform:'translateX(0)'}],{duration:250,easing:'ease-out'});
-    toast('Invalid credentials. Use demo credentials.');
-    return;
-  }
-  actorName= role==='admin' ? 'Admin User' : (kMatch?.name || u || 'Karyakar User');
   const persist=document.getElementById('rememberMe').checked;
-  if(persist)saveLoginRemember(role,u,p);else clearLoginRemember();
-  saveAuthState({loggedIn:true,role,user:actorName},persist);
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('appShell').classList.add('active');
-  try{
-    await syncBackendData();
-  }catch(e){
-    toast(`Backend sync failed: ${e.message||'unknown error'}`);
-    clearAuthState();
-    document.getElementById('loginScreen').classList.remove('hidden');
-    document.getElementById('appShell').classList.remove('active');
+
+  if(role==='admin'){
+    if(!(u==='admin'&&p==='admin123')){
+      shakeLogin();
+      toast('Invalid admin credentials.');
+      return;
+    }
+    actorName='Admin User';
+    if(persist)saveLoginRemember(role,u,p);else clearLoginRemember();
+    saveAuthState({loggedIn:true,role,user:actorName},persist);
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.add('active');
+    try{
+      await syncBackendData();
+    }catch(e){
+      toast(`Backend sync failed: ${e.message||'unknown error'}`);
+      clearAuthState();
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('appShell').classList.remove('active');
+      return;
+    }
+    applyRoleUI();
+    enhanceUI();
+    initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+    applyPdfTemplate();
+    updPDF();
+    postLoginLanding();
     return;
   }
-  applyRoleUI();
-  enhanceUI();
-  initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
-  applyPdfTemplate();
-  updPDF();
-  postLoginLanding();
+
+  if(role==='karyakar'){
+    if(u.includes('@')&&p.length){
+      try{
+        const r=await fetch('/api/auth/karyakar-login',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({email:u.toLowerCase(),password:p})
+        });
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok)throw new Error(data.error||'Login failed');
+        actorName=data.user.fullName||data.user.email||'Karyakar';
+        role='karyakar';
+        if(persist)saveLoginRemember('karyakar',u,p);else clearLoginRemember();
+        saveAuthState({loggedIn:true,role,user:actorName},persist);
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('appShell').classList.add('active');
+        try{
+          await syncBackendData();
+        }catch(e){
+          toast(`Backend sync failed: ${e.message||'unknown error'}`);
+          clearAuthState();
+          document.getElementById('loginScreen').classList.remove('hidden');
+          document.getElementById('appShell').classList.remove('active');
+          return;
+        }
+        applyRoleUI();
+        enhanceUI();
+        initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+        applyPdfTemplate();
+        updPDF();
+        postLoginLanding();
+        return;
+      }catch(err){
+        shakeLogin();
+        toast(err.message||'Invalid email or password.');
+        return;
+      }
+    }
+    const kMatch=USERS.find(x=>{
+      const isK=(x.role==='Karyakar'||x.role==='Usher') && x.status!=='Inactive';
+      const uu=u.toLowerCase();
+      return isK && (String(x.email||'').toLowerCase()===uu || String(x.name||'').toLowerCase()===uu);
+    });
+    const legacyOk=(u==='karyakar'&&p==='karyakar123')||(!!kMatch&&p==='karyakar123');
+    if(!legacyOk){
+      shakeLogin();
+      toast('Invalid credentials. Use your email + password, or legacy demo karyakar / karyakar123.');
+      return;
+    }
+    actorName=kMatch?.name||u||'Karyakar User';
+    if(persist)saveLoginRemember(role,u,p);else clearLoginRemember();
+    saveAuthState({loggedIn:true,role,user:actorName},persist);
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.add('active');
+    try{
+      await syncBackendData();
+    }catch(e){
+      toast(`Backend sync failed: ${e.message||'unknown error'}`);
+      clearAuthState();
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('appShell').classList.remove('active');
+      return;
+    }
+    applyRoleUI();
+    enhanceUI();
+    initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+    applyPdfTemplate();
+    updPDF();
+    postLoginLanding();
+  }
 }
 function doLogout(){clearAuthState();document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('appShell').classList.remove('active');restoreLoginRemember()}
 

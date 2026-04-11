@@ -75,6 +75,27 @@ function constantTimeCompareStrings(a, b) {
   return crypto.timingSafeEqual(ba, bb);
 }
 
+const SCRYPT_OPTS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+function hashUserPassword(plain) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(String(plain), salt, 64, SCRYPT_OPTS);
+  return `v1$${salt.toString("base64")}$${hash.toString("base64")}`;
+}
+function verifyUserPassword(plain, stored) {
+  if (typeof stored !== "string" || !stored.startsWith("v1$")) return false;
+  const parts = stored.split("$");
+  if (parts.length !== 4) return false;
+  try {
+    const salt = Buffer.from(parts[2], "base64");
+    const expected = Buffer.from(parts[3], "base64");
+    const hash = crypto.scryptSync(String(plain), salt, 64, SCRYPT_OPTS);
+    if (hash.length !== expected.length) return false;
+    return crypto.timingSafeEqual(hash, expected);
+  } catch {
+    return false;
+  }
+}
+
 function requireApiKey(req, res, next) {
   if (!API_KEY) {
     return res.status(503).json({ error: "Server misconfigured: API key not set." });
@@ -144,6 +165,52 @@ app.use("/api", (req, res, next) => {
 // Public health check (Render will call this without auth headers)
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+const karyakarLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.PRASAR_KARYAKAR_LOGIN_MAX_PER_15M || 40),
+  message: { error: "Too many login attempts. Try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
+  const emailRaw = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  if (!emailRaw || !password) return badRequest(res, "email and password are required.");
+  if (!isEmail(emailRaw)) return badRequest(res, "Invalid email.");
+
+  try {
+    const result = await db.query(
+      `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
+       FROM users WHERE LOWER(email) = $1 LIMIT 1`,
+      [emailRaw]
+    );
+    const row = result.rows[0];
+    if (!row || row.role !== "KARYAKAR") {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+    if (row.status === "INACTIVE") {
+      return res.status(403).json({ error: "This account is inactive. Contact an administrator." });
+    }
+    if (!row.password_hash || !verifyUserPassword(password, row.password_hash)) {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+    return res.json({
+      user: {
+        id: row.id,
+        fullName: row.full_name,
+        email: row.email,
+        role: "KARYAKAR",
+        assignedArea: row.assigned_area || "",
+        phone: row.phone || "",
+        status: row.status,
+      },
+    });
+  } catch {
+    return res.status(500).json({ error: "Login failed." });
+  }
 });
 
 app.use("/api", requireApiKey);
@@ -243,7 +310,9 @@ app.get("/api/reload-hash", (_req, res) => {
 
 app.get("/api/users", async (_req, res) => {
   try {
-    const result = await db.query("SELECT id, full_name, email, role, status, created_at FROM users ORDER BY id DESC");
+    const result = await db.query(
+      "SELECT id, full_name, email, role, status, phone, assigned_area, created_at FROM users ORDER BY id DESC"
+    );
     return res.json(result.rows);
   } catch {
     return res.status(500).json({ error: "Failed to load users." });
@@ -251,23 +320,105 @@ app.get("/api/users", async (_req, res) => {
 });
 
 app.post("/api/users", async (req, res) => {
-  const { fullName, email, role, status } = req.body || {};
+  const { fullName, email, role, status, phone, assignedArea, password } = req.body || {};
   if (!fullName || !email || !role) {
     return badRequest(res, "fullName, email, and role are required.");
   }
   if (!isEmail(email)) return badRequest(res, "Invalid email.");
   if (!["ADMIN", "KARYAKAR"].includes(role)) return badRequest(res, "Invalid role.");
   const safeStatus = status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+  const phoneVal = cleanText(phone || "", 40);
+  const areaVal = cleanText(assignedArea || "", 200);
+  let passwordHash = null;
+  if (role === "KARYAKAR") {
+    if (typeof password !== "string" || password.length < 8) {
+      return badRequest(res, "password is required for karyakar accounts (at least 8 characters).");
+    }
+    passwordHash = hashUserPassword(password);
+  }
 
   try {
     const result = await db.query(
-      "INSERT INTO users (full_name, email, role, status) VALUES ($1, $2, $3, $4) RETURNING *",
-      [cleanText(fullName, 120), cleanText(email, 180).toLowerCase(), role, safeStatus]
+      `INSERT INTO users (full_name, email, role, status, phone, assigned_area, password_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, full_name, email, role, status, phone, assigned_area, created_at`,
+      [
+        cleanText(fullName, 120),
+        cleanText(email, 180).toLowerCase(),
+        role,
+        safeStatus,
+        phoneVal || null,
+        areaVal || null,
+        passwordHash,
+      ]
     );
     return res.status(201).json(result.rows[0]);
   } catch (err) {
     if (String(err.message).includes("duplicate key")) return badRequest(res, "Email already exists.");
     return res.status(500).json({ error: "Failed to create user." });
+  }
+});
+
+app.patch("/api/users/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return badRequest(res, "Invalid user id.");
+  const { fullName, email, role, status, phone, assignedArea, password } = req.body || {};
+
+  try {
+    const cur = await db.query("SELECT id, email FROM users WHERE id = $1", [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: "User not found." });
+    const nextEmail = email != null ? cleanText(String(email), 180).toLowerCase() : null;
+    if (nextEmail && !isEmail(nextEmail)) return badRequest(res, "Invalid email.");
+    if (nextEmail) {
+      const clash = await db.query("SELECT id FROM users WHERE LOWER(email) = $1 AND id <> $2 LIMIT 1", [
+        nextEmail,
+        id,
+      ]);
+      if (clash.rows[0]) return badRequest(res, "Email already exists.");
+    }
+
+    const sets = [];
+    const vals = [];
+    let i = 1;
+    if (fullName != null) {
+      sets.push(`full_name = $${i++}`);
+      vals.push(cleanText(String(fullName), 120));
+    }
+    if (nextEmail != null) {
+      sets.push(`email = $${i++}`);
+      vals.push(nextEmail);
+    }
+    if (role != null) {
+      const r = String(role).toUpperCase();
+      if (!["ADMIN", "KARYAKAR"].includes(r)) return badRequest(res, "Invalid role.");
+      sets.push(`role = $${i++}`);
+      vals.push(r);
+    }
+    if (status != null) {
+      const s = String(status).toUpperCase() === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+      sets.push(`status = $${i++}`);
+      vals.push(s);
+    }
+    if (phone != null) {
+      sets.push(`phone = $${i++}`);
+      vals.push(cleanText(String(phone), 40) || null);
+    }
+    if (assignedArea != null) {
+      sets.push(`assigned_area = $${i++}`);
+      vals.push(cleanText(String(assignedArea), 200) || null);
+    }
+    if (typeof password === "string" && password.length > 0) {
+      if (password.length < 8) return badRequest(res, "Password must be at least 8 characters.");
+      sets.push(`password_hash = $${i++}`);
+      vals.push(hashUserPassword(password));
+    }
+
+    if (!sets.length) return badRequest(res, "No fields to update.");
+    vals.push(id);
+    const q = `UPDATE users SET ${sets.join(", ")} WHERE id = $${i} RETURNING id, full_name, email, role, status, phone, assigned_area, created_at`;
+    const result = await db.query(q, vals);
+    return res.json(result.rows[0]);
+  } catch {
+    return res.status(500).json({ error: "Failed to update user." });
   }
 });
 
