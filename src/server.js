@@ -8,6 +8,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
+const bcrypt = require("bcryptjs");
 const db = require("./db");
 const postmark = require("./postmark");
 const invitationRender = require("./invitationRender");
@@ -97,6 +98,27 @@ function verifyUserPassword(plain, stored) {
   }
 }
 
+/** true = match, false = no match, null = unknown hash format */
+function verifyStoredPassword(plain, stored) {
+  const s = typeof stored === "string" ? stored.trim() : "";
+  if (!s) return false;
+  if (s.startsWith("v1$")) return verifyUserPassword(plain, s);
+  if (/^\$2[aby]\$\d{2}\$/.test(s)) {
+    try {
+      return bcrypt.compareSync(String(plain), s);
+    } catch {
+      return false;
+    }
+  }
+  return null;
+}
+
+function normalizeLoginIdentifier(raw) {
+  return String(raw || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim();
+}
+
 function requireApiKey(req, res, next) {
   if (!API_KEY) {
     return res.status(503).json({ error: "Server misconfigured: API key not set." });
@@ -182,7 +204,7 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
     (typeof req.body?.email === "string" && req.body.email) ||
     (typeof req.body?.login === "string" && req.body.login) ||
     "";
-  const identifier = String(raw).trim();
+  const identifier = normalizeLoginIdentifier(raw);
   const password = typeof req.body?.password === "string" ? req.body.password : "";
   if (!identifier || !password) return badRequest(res, "identifier and password are required.");
 
@@ -190,18 +212,18 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
     let result;
     if (isEmail(identifier)) {
       result = await db.query(
-        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
+        `SELECT id, full_name, email, "role", status, assigned_area, phone, password_hash
          FROM users
-         WHERE UPPER(TRIM(role)) = 'KARYAKAR' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
+         WHERE UPPER(TRIM("role")) = 'KARYAKAR' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
          LIMIT 1`,
         [identifier]
       );
     } else {
       const nameKey = identifier.toLowerCase().replace(/\s+/g, " ");
       result = await db.query(
-        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
+        `SELECT id, full_name, email, "role", status, assigned_area, phone, password_hash
          FROM users
-         WHERE UPPER(TRIM(role)) = 'KARYAKAR'
+         WHERE UPPER(TRIM("role")) = 'KARYAKAR'
            AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
          LIMIT 1`,
         [nameKey]
@@ -222,15 +244,16 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
         code: "PASSWORD_NOT_SET",
       });
     }
-    const ph = String(phRaw);
-    if (!ph.startsWith("v1$")) {
+    const ph = String(phRaw).trim();
+    const match = verifyStoredPassword(password, ph);
+    if (match === null) {
       return res.status(401).json({
         error:
-          "The saved password is not in PRASAR format (often happens if it was typed only in Supabase). An admin must set the password again in User Management → Edit.",
+          "The saved password uses an unsupported format. An admin must set the password again in User Management → Edit (PRASAR uses a secure hash in the app).",
         code: "PASSWORD_UNSUPPORTED_FORMAT",
       });
     }
-    if (!verifyUserPassword(password, row.password_hash)) {
+    if (!match) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
     return res.json({
