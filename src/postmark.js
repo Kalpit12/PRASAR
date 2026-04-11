@@ -32,9 +32,10 @@ function htmlToPlainText(html) {
  * @param {string} opts.htmlBody
  * @param {string} [opts.textBody]
  * @param {string} [opts.tag]
+ * @param {{ name: string, contentBase64: string, contentType?: string }[]} [opts.attachments]
  * @returns {Promise<{ success: boolean, messageId?: string, error?: string, submittedAt?: string }>}
  */
-async function sendEmail({ to, subject, htmlBody, textBody, tag }) {
+async function sendEmail({ to, subject, htmlBody, textBody, tag, attachments }) {
   const token = String(process.env.POSTMARK_API_KEY || "").trim();
   if (!token) {
     return { success: false, error: "Postmark API key not configured" };
@@ -67,6 +68,14 @@ async function sendEmail({ to, subject, htmlBody, textBody, tag }) {
   }
   if (tag) {
     payload.Tag = cleanText(tag, 100);
+  }
+
+  if (Array.isArray(attachments) && attachments.length) {
+    payload.Attachments = attachments.map((a) => ({
+      Name: cleanText(a.name || "attachment.pdf", 180),
+      Content: String(a.contentBase64 || ""),
+      ContentType: String(a.contentType || "application/octet-stream").trim().slice(0, 120) || "application/octet-stream",
+    }));
   }
 
   const body = JSON.stringify(payload);

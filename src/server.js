@@ -8,9 +8,9 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
-const PDFDocument = require("pdfkit");
 const db = require("./db");
 const postmark = require("./postmark");
+const invitationRender = require("./invitationRender");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -569,25 +569,10 @@ app.get("/api/invitations/:id/pdf", async (req, res) => {
     const invite = result.rows[0];
     if (!invite) return res.status(404).json({ error: "Invitation not found." });
 
+    const pdfBuf = await invitationRender.renderInvitationPdfBuffer(invite);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=invitation-${invite.id}.pdf`);
-
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
-    doc.pipe(res);
-    doc.fontSize(20).text("PRASAR Invitation", { align: "center" });
-    doc.moveDown();
-    doc.fontSize(12).text(`To: ${invite.dignitary_name}`);
-    doc.text(`Email: ${invite.email}`);
-    doc.text(`Designation: ${invite.designation || "-"}`);
-    doc.text(`Organization: ${invite.organization || "-"}`);
-    doc.moveDown();
-    doc.text(`Event: ${invite.event_title}`);
-    doc.text(`Date: ${invite.event_date}`);
-    doc.text(`Venue: ${invite.venue}`);
-    doc.moveDown();
-    doc.text("Message:");
-    doc.text(invite.custom_message || "You are cordially invited.", { lineGap: 4 });
-    doc.end();
+    return res.send(pdfBuf);
   } catch {
     return res.status(500).json({ error: "Failed to render PDF." });
   }
@@ -600,7 +585,7 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
   if (!sender.rows[0]) return badRequest(res, "Invalid userId.");
 
   const inviteResult = await db.query(`
-      SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.email,
+      SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.designation, d.organization, d.email,
              e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
@@ -613,15 +598,40 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
     return badRequest(res, "Dignitary email is missing or invalid; cannot send.");
   }
 
+  let pdfBuf;
+  try {
+    pdfBuf = await invitationRender.renderInvitationPdfBuffer(invite);
+  } catch (_e) {
+    return res.status(500).json({ error: "Failed to build invitation PDF." });
+  }
+
   const subject = `Invitation: ${invite.event_title}`;
-  const html = `
-    <h2>PRASAR Invitation</h2>
-    <p>Dear ${invite.dignitary_name},</p>
-    <p>${invite.custom_message || "You are cordially invited to this event."}</p>
-    <p><strong>Event:</strong> ${invite.event_title}<br/>
-    <strong>Date:</strong> ${invite.event_date}<br/>
-    <strong>Venue:</strong> ${invite.venue}</p>
-  `;
+  const html = invitationRender.buildInvitationEmailHtml(invite);
+  const dateLine = invitationRender.formatDateDisplay(invite.event_date);
+  const textBody = [
+    `Dear ${invite.dignitary_name},`,
+    "",
+    invite.custom_message ? String(invite.custom_message).trim() : "You are cordially invited.",
+    "",
+    `Event: ${invite.event_title}`,
+    `Date: ${dateLine}`,
+    invite.event_time ? `Time: ${invite.event_time}` : "",
+    `Venue: ${invite.venue}`,
+    "",
+    "A formal PDF invitation is attached to this email.",
+    "",
+    "— BAPS Africa",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const pdfName = `PRASAR-Invitation-${invite.id}.pdf`;
+  const attach = [
+    {
+      name: pdfName,
+      contentBase64: pdfBuf.toString("base64"),
+      contentType: "application/pdf",
+    },
+  ];
 
   let delivery = { provider: "local", outboxFile: null, messageId: null };
 
@@ -630,7 +640,9 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
       to: invite.email,
       subject,
       htmlBody: html,
+      textBody,
       tag: "invitation",
+      attachments: attach,
     });
     if (!pm.success) {
       if (!isProduction) {
@@ -649,6 +661,8 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
       to: invite.email,
       subject,
       html,
+      text: textBody,
+      attachments: [{ filename: pdfName, content: pdfBuf, contentType: "application/pdf" }],
     });
     const emlPath = path.join(outboxDir, `invitation-${invite.id}-${Date.now()}.eml`);
     fs.writeFileSync(emlPath, info.message);

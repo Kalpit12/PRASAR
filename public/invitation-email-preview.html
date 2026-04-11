@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PRASAR — Invitation email preview</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #c8c2b8; font-family: system-ui, sans-serif; }
+    .hint { max-width: 600px; margin: 0 auto 16px; font-size: 13px; color: #333; }
+    .hint code { background: #eee; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <p class="hint">Static preview of the same layout as <code>src/invitationRender.js</code> → <code>buildInvitationEmailHtml</code>. Sample data only.</p>
+
+  <!-- === EMAIL TEMPLATE (copy below this line for Postmark-style body) === -->
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ede8df;padding:28px 12px;">
+    <tr><td align="center">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e0d8cc;">
+        <tr>
+          <td style="background:#1A237E;padding:28px 28px 32px;text-align:center;">
+            <img src="./BAPS.png" width="72" alt="BAPS Swaminarayan Sanstha" style="display:block;margin:0 auto 14px;border:0;height:auto;max-width:96px;" />
+            <p style="margin:0;font-size:10px;letter-spacing:3px;color:#C9A84C;text-transform:uppercase;font-family:Arial,sans-serif;">BAPS Swaminarayan Sanstha · Africa</p>
+            <h1 style="margin:10px 0 0;font-size:28px;font-weight:700;color:#ffffff;font-family:Georgia,'Times New Roman',serif;letter-spacing:0.5px;">PRASAR</h1>
+            <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.92);font-family:Arial,sans-serif;letter-spacing:0.2px;max-width:420px;margin-left:auto;margin-right:auto;">Digital Outreach With A Devotional Heart.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 32px 40px;font-family:Georgia,'Times New Roman',serif;">
+            <p style="margin:0;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif;">Dear</p>
+            <p style="margin:6px 0 0;font-size:24px;font-weight:700;color:#1A237E;line-height:1.2;">Dr Neel Patel</p>
+            <p style="margin:20px 0 0;font-size:15px;line-height:1.65;color:#444;">WELCOME TO PRASAR — we look forward to hosting you for this auspicious occasion.</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:28px;background:#FDF8F0;border:1px solid #E8E0D4;border-radius:12px;">
+              <tr><td style="padding:22px 24px;">
+                <p style="margin:0 0 14px;font-size:11px;letter-spacing:2px;color:#E8820C;text-transform:uppercase;font-weight:bold;font-family:Arial,sans-serif;">Event details</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="width:40px;vertical-align:top;font-size:15px;color:#1A237E;">●</td>
+                    <td style="font-size:17px;color:#1A237E;font-weight:bold;padding-bottom:12px;font-family:Georgia,serif;">Test</td>
+                  </tr>
+                  <tr>
+                    <td style="vertical-align:top;font-size:15px;color:#1A237E;">●</td>
+                    <td style="font-size:15px;color:#444;padding-bottom:10px;font-family:Arial,sans-serif;"><strong style="color:#1A237E;">Date</strong><br/><span style="color:#333;">Friday, April 10, 2026</span></td>
+                  </tr>
+                  <tr>
+                    <td style="vertical-align:top;font-size:15px;color:#1A237E;">●</td>
+                    <td style="font-size:15px;color:#444;padding-bottom:10px;font-family:Arial,sans-serif;"><strong style="color:#1A237E;">Time</strong><br/><span style="color:#333;">10:30 AM</span></td>
+                  </tr>
+                  <tr>
+                    <td style="vertical-align:top;font-size:15px;color:#1A237E;">●</td>
+                    <td style="font-size:15px;color:#444;font-family:Arial,sans-serif;"><strong style="color:#1A237E;">Venue</strong><br/><span style="color:#333;">BAPS Swaminarayan Mandir</span></td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
+            <p style="margin:28px 0 0;font-size:14px;line-height:1.65;color:#555;font-family:Arial,sans-serif;border-top:1px solid #E8E0D4;padding-top:22px;">
+              Your <strong>formal invitation</strong> is attached as a <strong>PDF</strong> to this email. Please save it for your records.
+            </p>
+            <p style="margin:22px 0 0;font-size:12px;color:#9E9E9E;font-family:Arial,sans-serif;line-height:1.5;">With prayers and best wishes,</p>
+            <p style="margin:14px 0 0;font-size:14px;color:#C9A84C;font-weight:700;font-family:Arial,sans-serif;letter-spacing:0.3px;">BAPS Africa</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
