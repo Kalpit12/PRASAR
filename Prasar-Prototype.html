@@ -2430,6 +2430,26 @@ async function sendInviteEmail(){
   if(!sender?.dbId){
     toast('No user record for sender. Open User Mgmt and ensure users are loaded.','ts');return;
   }
+  closeM('sendEmail');
+  const invPage=document.getElementById('page-invitations');
+  if(invPage&&!invPage.classList.contains('active')){
+    nav('invitations');
+    await new Promise(r=>setTimeout(r,140));
+  }
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  if(typeof repairPdfLayoutIfNeeded==='function')repairPdfLayoutIfNeeded();
+  await new Promise(r=>setTimeout(r,80));
+  let pdfBase64=null;
+  try{
+    const pdfDoc=await renderPdfBlobForSelection(ei,di);
+    const dataUri=pdfDoc.output('datauristring');
+    const comma=dataUri.indexOf(',');
+    if(comma>=0)pdfBase64=dataUri.slice(comma+1);
+  }catch(_e){
+    toast('Could not capture the invitation PDF from the preview. Stay on Invitations and try again.','ts');
+    return;
+  }
+  if(!pdfBase64){toast('PDF export failed');return;}
   try{
     const created=await apiRequest('/api/invitations',{
       method:'POST',
@@ -2442,9 +2462,8 @@ async function sendInviteEmail(){
     const invId=created.id;
     const result=await apiRequest('/api/invitations/'+invId+'/send-email',{
       method:'POST',
-      body:JSON.stringify({userId:sender.dbId})
+      body:JSON.stringify({userId:sender.dbId,pdfBase64})
     });
-    closeM('sendEmail');
     await syncBackendData();
     renderComms();
     if(result.provider==='postmark'&&result.messageId){

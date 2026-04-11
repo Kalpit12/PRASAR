@@ -135,7 +135,7 @@ const invitationEmailLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use(express.json({ limit: "256kb" }));
+app.use(express.json({ limit: "12mb" }));
 app.use("/api", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
@@ -174,6 +174,19 @@ function isEmail(value) {
 
 function badRequest(res, message) {
   return res.status(400).json({ error: message });
+}
+
+/** Optional client-generated PDF (jsPDF from invitation preview). Max ~10MB. */
+function decodeClientInvitationPdf(pdfBase64) {
+  if (typeof pdfBase64 !== "string" || !pdfBase64.trim()) return null;
+  try {
+    const buf = Buffer.from(pdfBase64.trim(), "base64");
+    if (buf.length < 8 || buf.length > 10 * 1024 * 1024) return null;
+    if (buf.slice(0, 4).toString("ascii") !== "%PDF") return null;
+    return buf;
+  } catch {
+    return null;
+  }
 }
 
 function cleanText(value, maxLen = 200) {
@@ -579,7 +592,7 @@ app.get("/api/invitations/:id/pdf", async (req, res) => {
 });
 
 app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, res) => {
-  const { userId } = req.body || {};
+  const { userId, pdfBase64 } = req.body || {};
   if (!userId) return badRequest(res, "userId is required.");
   const sender = await db.query("SELECT id FROM users WHERE id = $1", [userId]);
   if (!sender.rows[0]) return badRequest(res, "Invalid userId.");
@@ -598,11 +611,13 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
     return badRequest(res, "Dignitary email is missing or invalid; cannot send.");
   }
 
-  let pdfBuf;
-  try {
-    pdfBuf = await invitationRender.renderInvitationPdfBuffer(invite);
-  } catch (_e) {
-    return res.status(500).json({ error: "Failed to build invitation PDF." });
+  let pdfBuf = decodeClientInvitationPdf(pdfBase64);
+  if (!pdfBuf) {
+    try {
+      pdfBuf = await invitationRender.renderInvitationPdfBuffer(invite);
+    } catch (_e) {
+      return res.status(500).json({ error: "Failed to build invitation PDF." });
+    }
   }
 
   const subject = `Invitation: ${invite.event_title}`;
