@@ -388,7 +388,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <div class="login-body">
   <label>Select Role</label>
   <select id="loginRole"><option value="admin">🛡️ Administrator</option><option value="karyakar">🙏 PR Karyakar</option></select>
-  <label>Username</label><input type="text" id="loginUser" autocomplete="off">
+  <label id="loginUserLbl">Username</label><input type="text" id="loginUser" autocomplete="username">
   <label>Password</label><input type="password" id="loginPass" autocomplete="new-password">
   <div class="remember-row"><input type="checkbox" id="rememberMe" checked><label for="rememberMe">Remember me</label></div>
   <button class="login-btn" onclick="doLogin()">Enter PRASAR →</button>
@@ -1122,7 +1122,14 @@ function fillRememberedForSelectedRole(){
   }
 }
 function restoreLoginRemember(){fillRememberedForSelectedRole()}
-document.getElementById('loginRole').addEventListener('change',fillRememberedForSelectedRole);
+function updateLoginUserLabel(){
+  const r=document.getElementById('loginRole')?.value;
+  const lbl=document.getElementById('loginUserLbl');
+  if(!lbl)return;
+  lbl.textContent=r==='karyakar'?'Email or full name':'Username';
+}
+document.getElementById('loginRole').addEventListener('change',()=>{updateLoginUserLabel();fillRememberedForSelectedRole();});
+updateLoginUserLabel();
 function saveAuthState(v,persist){
   const s=JSON.stringify(v);
   try{
@@ -2702,18 +2709,20 @@ async function doLogin(){
   }
 
   if(role==='karyakar'){
-    if(u.includes('@')&&p.length){
+    const ident=u.trim();
+    const legacyDemo=ident.toLowerCase()==='karyakar'&&p==='karyakar123';
+    if(!legacyDemo&&p.length){
       try{
         const r=await fetch('/api/auth/karyakar-login',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({email:u.toLowerCase(),password:p})
+          body:JSON.stringify({identifier:ident,password:p})
         });
         const data=await r.json().catch(()=>({}));
         if(!r.ok)throw new Error(data.error||'Login failed');
         actorName=data.user.fullName||data.user.email||'Karyakar';
         role='karyakar';
-        if(persist)saveLoginRemember('karyakar',u,p);else clearLoginRemember();
+        if(persist)saveLoginRemember('karyakar',ident,p);else clearLoginRemember();
         saveAuthState({loggedIn:true,role,user:actorName},persist);
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('appShell').classList.add('active');

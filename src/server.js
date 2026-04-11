@@ -176,17 +176,36 @@ const karyakarLoginLimiter = rateLimit({
 });
 
 app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
-  const emailRaw = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const raw =
+    (typeof req.body?.identifier === "string" && req.body.identifier) ||
+    (typeof req.body?.email === "string" && req.body.email) ||
+    (typeof req.body?.login === "string" && req.body.login) ||
+    "";
+  const identifier = String(raw).trim();
   const password = typeof req.body?.password === "string" ? req.body.password : "";
-  if (!emailRaw || !password) return badRequest(res, "email and password are required.");
-  if (!isEmail(emailRaw)) return badRequest(res, "Invalid email.");
+  if (!identifier || !password) return badRequest(res, "identifier and password are required.");
 
   try {
-    const result = await db.query(
-      `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
-       FROM users WHERE LOWER(email) = $1 LIMIT 1`,
-      [emailRaw]
-    );
+    let result;
+    if (isEmail(identifier)) {
+      result = await db.query(
+        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
+         FROM users
+         WHERE role = 'KARYAKAR' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
+         LIMIT 1`,
+        [identifier]
+      );
+    } else {
+      const nameKey = identifier.toLowerCase().replace(/\s+/g, " ");
+      result = await db.query(
+        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
+         FROM users
+         WHERE role = 'KARYAKAR'
+           AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
+         LIMIT 1`,
+        [nameKey]
+      );
+    }
     const row = result.rows[0];
     if (!row || row.role !== "KARYAKAR") {
       return res.status(401).json({ error: "Invalid email or password." });
