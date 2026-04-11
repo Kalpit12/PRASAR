@@ -136,6 +136,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:700;color:var(--nav
 .stat-card .chg{font-size:.72rem;margin-top:8px;font-weight:600;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px}
 .chg.up{background:var(--success-light);color:var(--success)}
 .card{background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden}
+.card.card-pdf-preview{overflow:visible}
 .card-hd{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .card-hd h3{font-size:1.05rem}
 .pv-card-hd{flex-direction:column;align-items:stretch;gap:14px}
@@ -233,7 +234,7 @@ tr:hover td{background:rgba(232,130,12,.03)}
 .toast.show{transform:translateY(0);opacity:1}.toast.ts{background:var(--success)}
 
 .pdf-pv{border:2px solid var(--border);border-radius:var(--radius-lg);padding:48px 40px;max-width:560px;margin:0 auto;
-  background:linear-gradient(180deg,#FFFDF8 0%,#FFF 100%);position:relative;box-shadow:var(--shadow-lg);overflow:hidden}
+  background:linear-gradient(180deg,#FFFDF8 0%,#FFF 100%);position:relative;box-shadow:var(--shadow-lg);overflow:visible}
 .pv-bg{position:absolute;inset:0;z-index:0;border-radius:inherit;background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none}
 .pv-edit-hint{display:none;font-size:.74rem;color:var(--text-muted);margin:0 0 12px 0;line-height:1.45;max-width:560px}
 .pv-edit-hint kbd{font-size:.68rem;padding:1px 6px;border-radius:4px;background:var(--bg-subtle);border:1px solid var(--border)}
@@ -254,9 +255,11 @@ tr:hover td{background:rgba(232,130,12,.03)}
 .pdf-pv.pv-edit .pv-resize-handle[data-dir="s"]{left:50%;bottom:0;transform:translateX(-50%);width:32px;height:11px;border-radius:4px;cursor:ns-resize}
 .pdf-pv.pv-edit .pv-resize-handle[data-dir="se"]{right:0;bottom:0;width:18px;height:18px;border-radius:4px;cursor:nwse-resize}
 .pdf-pv.pv-edit .pv-resize-handle[data-dir="se"]::after{content:'';position:absolute;inset:3px;border-right:2px solid rgba(255,255,255,.9);border-bottom:2px solid rgba(255,255,255,.9);border-radius:0 0 2px 0;pointer-events:none}
-.pv-img-layer .pv-logo-img{max-width:200px;max-height:120px;width:auto;height:auto;object-fit:contain}
-.pv-logo-img{max-width:120px;max-height:54px;display:block}
+.pv-img-layer{display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box}
+.pv-img-layer .pv-logo-img{max-width:100%;max-height:160px;width:auto;height:auto;object-fit:contain}
+.pv-logo-img{max-width:120px;max-height:54px;display:block;margin-left:auto;margin-right:auto;object-fit:contain}
 .pdf-pv .plogo{text-align:center;margin-bottom:8px;font-size:2.4rem}
+.pdf-pv .pv-stack.pv-laid-out .pv-el[data-kind="text"]{overflow-wrap:break-word;word-wrap:break-word;hyphens:auto}
 .pdf-pv .porg{text-align:center;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--text-light);margin-bottom:28px}
 .pdf-pv .pto{font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--text);line-height:1.6;margin-bottom:24px}
 .pdf-pv .pinv{font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--text-light);line-height:1.7;margin-bottom:20px}
@@ -539,9 +542,9 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <div class="fg" style="margin-bottom:14px"><label>Select Event</label><select id="invE" onchange="updPDF()"><option value="">No sample events configured</option></select></div>
   <div class="fg" style="margin-bottom:14px"><label>Select Dignitary</label><select id="invD" onchange="updPDF()"><option value="">No sample dignitaries configured</option></select></div>
   <div class="fg" style="margin-bottom:14px"><label>Custom Message</label><textarea id="invCustomMsg" placeholder="Add a personal note…"></textarea></div>
-  <div class="bg"><button class="btn btn-p" onclick="generateInvitationPdf()">🖨️ Generate PDF</button><button class="btn btn-w" onclick="toast('WhatsApp opened!','ts')">💬 WhatsApp</button><button class="btn btn-o" onclick="openSendEmailModal()">📧 Email</button></div>
+  <div class="bg"><button class="btn btn-p" onclick="generateInvitationPdf()">🖨️ Generate PDF</button><button class="btn btn-w" onclick="toast('WhatsApp opened!','ts')">💬 WhatsApp</button><button class="btn btn-o" onclick="openSendEmailModal()">📧 Email</button><button class="btn btn-o" onclick="openBulkSendEmailModal()">📧 Bulk email</button></div>
 </div></div></div>
-<div><div class="card"><div class="card-hd pv-card-hd"><h3>PDF Preview</h3>
+<div><div class="card card-pdf-preview"><div class="card-hd pv-card-hd"><h3>PDF Preview</h3>
   <div class="pv-toolbar admin-only">
     <div class="pv-toolbar-group">
       <span class="pv-toolbar-lbl">Template</span>
@@ -878,9 +881,19 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <div class="mo" id="m-sendEmail"><div class="modal"><div class="mh"><h3>Send Invitation Email</h3><button class="mc" onclick="closeM('sendEmail')">✕</button></div><div class="mb">
   <p style="font-size:.8rem;color:var(--text-muted);margin:0 0 10px">Email is sent by the server (Postmark on live). It goes <strong>to</strong> the dignitary below — not to your own login email.</p>
   <div class="fg" style="margin-bottom:14px"><label>Recipient</label><input id="sendEmailTo" readonly placeholder="Select dignitary above first" style="background:var(--bg-soft)"></div>
-  <div class="fg" style="margin-bottom:14px"><label>Subject</label><input id="sendEmailSubject" readonly style="background:var(--bg-soft)"></div>
+  <div class="fg" style="margin-bottom:14px"><label>Subject</label><input id="sendEmailSubject" placeholder="Invitation: …" maxlength="200"></div>
   <div class="fg" style="margin-bottom:18px"><label>Message</label><textarea id="sendEmailBody" placeholder="Optional personal note for the email body…"></textarea></div>
   <div class="bg"><button class="btn btn-p" onclick="sendInviteEmail()">Send</button><button class="btn btn-o" onclick="closeM('sendEmail')">Cancel</button></div>
+</div></div></div>
+
+<div class="mo" id="m-bulkSendEmail"><div class="modal" style="max-width:560px"><div class="mh"><h3>Bulk invitation email</h3><button class="mc" onclick="closeM('bulkSendEmail')">✕</button></div><div class="mb">
+  <p style="font-size:.8rem;color:var(--text-muted);margin:0 0 12px">Each selected dignitary receives their own <strong>PDF</strong> (name, designation, organization from their profile) and the same HTML message. Requires Invitations page preview layout (same as single email).</p>
+  <div class="fg" style="margin-bottom:14px"><label>Event</label><select id="bulkEmailEvent" onchange="syncBulkEmailSubjectFromEvent()"><option value="">No events configured</option></select></div>
+  <div class="fg" style="margin-bottom:14px"><label>Audience</label><select id="bulkEmailAudience" onchange="renderBulkEmailDigCheckboxes()"><option value="all">All dignitaries (visible to you)</option><option value="active">Active only</option></select></div>
+  <div class="fg" style="margin-bottom:10px"><label>Recipients</label><div class="bg" style="margin-bottom:8px"><button type="button" class="btn btn-sm btn-o" onclick="bulkEmailSelectAll()">Select all with email</button><button type="button" class="btn btn-sm btn-o" onclick="bulkEmailSelectNone()">Clear</button></div><div id="bulkEmailDigList" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:var(--bg-soft)"></div></div>
+  <div class="fg" style="margin-bottom:14px"><label>Subject</label><input id="bulkEmailSubject" placeholder="Invitation: …" maxlength="200"></div>
+  <div class="fg" style="margin-bottom:18px"><label>Message</label><textarea id="bulkEmailMsg" placeholder="Optional note for every email body…"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="sendBulkInvitationEmails()">Send to selected</button><button class="btn btn-o" onclick="closeM('bulkSendEmail')">Cancel</button></div>
 </div></div></div>
 
 <div class="mo" id="m-logGift"><div class="modal"><div class="mh"><h3>Log Gift / Memento</h3><button class="mc" onclick="closeM('logGift')">✕</button></div><div class="mb">
@@ -1809,8 +1822,8 @@ function applyPdfTemplateV2(tpl){
     const w=ex.imgWidth||120;
     const ih=parseFloat(ex.imgHeight);
     const imgStyle=Number.isFinite(ih)&&ih>0
-      ?'width:'+w+'px;height:'+ih+'px;max-width:none;max-height:none;object-fit:fill'
-      :'max-width:'+w+'px;width:'+w+'px;height:auto';
+      ?'width:'+w+'px;height:'+ih+'px;max-width:100%;max-height:100%;object-fit:contain'
+      :'max-width:'+w+'px;width:'+w+'px;height:auto;object-fit:contain';
     const div=document.createElement('div');
     div.className='pv-el pv-img-layer plogo';
     div.id=uid;
@@ -1925,17 +1938,17 @@ document.addEventListener('wheel',function(e){
     const nh=Math.min(900,Math.max(24,h+step));
     img.style.maxHeight='none';
     img.style.height=nh+'px';
-    img.style.objectFit='fill';
+    img.style.objectFit='contain';
   }else{
     const w=parseFloat(img.style.width)||parseFloat(img.style.maxWidth)||r.width||120;
-    const nw=Math.min(560,Math.max(28,w+step));
+    const nw=Math.min(400,Math.max(28,w+step));
     img.style.maxWidth='none';
     img.style.width=nw+'px';
     if(!img.style.height||img.style.height==='auto'){
       const ar=r.height/Math.max(r.width,1);
       img.style.height=Math.round(nw*ar)+'px';
     }
-    img.style.objectFit='fill';
+    img.style.objectFit='contain';
   }
   syncPdfStackHeight();
 },{passive:false});
@@ -2460,9 +2473,10 @@ async function sendInviteEmail(){
       })
     });
     const invId=created.id;
+    const emailSubject=(document.getElementById('sendEmailSubject')?.value||'').trim();
     const result=await apiRequest('/api/invitations/'+invId+'/send-email',{
       method:'POST',
-      body:JSON.stringify({userId:sender.dbId,pdfBase64})
+      body:JSON.stringify({userId:sender.dbId,pdfBase64,...(emailSubject?{emailSubject}:{})})
     });
     await syncBackendData();
     renderComms();
@@ -2476,6 +2490,132 @@ async function sendInviteEmail(){
   }catch(err){
     toast(err.message||'Send failed','ts');
   }
+}
+function syncBulkEmailSubjectFromEvent(){
+  const ei=Number(document.getElementById('bulkEmailEvent')?.value||-1);
+  const e=EVTS[ei];
+  const subEl=document.getElementById('bulkEmailSubject');
+  if(subEl&&e)subEl.value=`Invitation: ${e.name||'Event'}`;
+}
+function renderBulkEmailDigCheckboxes(){
+  const wrap=document.getElementById('bulkEmailDigList');
+  if(!wrap)return;
+  const audience=document.getElementById('bulkEmailAudience')?.value||'all';
+  let list=sortDigsAZ(roleScopedDigs());
+  if(audience==='active')list=list.filter(d=>d.st==='Active');
+  if(!list.length){
+    wrap.innerHTML='<p style="font-size:.85rem;color:var(--text-muted);margin:0">No dignitaries in this list.</p>';
+    return;
+  }
+  wrap.innerHTML=list.map(d=>{
+    const i=DIG.indexOf(d);
+    const em=(d.email||'').trim();
+    const dis=!em?' disabled title="No email on profile"':'';
+    const nm=escapeHtml(`${d.pre?d.pre+' ':''}${d.fn||''} ${d.ln||''}`.trim());
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer"><input type="checkbox" class="bulkEmailDigChk" value="${i}"${dis}> <span>${nm}</span> <span style="font-size:.78rem;color:var(--text-muted)">${escapeHtml(em||'no email')}</span></label>`;
+  }).join('');
+}
+function bulkEmailSelectAll(){
+  document.querySelectorAll('.bulkEmailDigChk:not(:disabled)').forEach(c=>{c.checked=true;});
+}
+function bulkEmailSelectNone(){
+  document.querySelectorAll('.bulkEmailDigChk').forEach(c=>{c.checked=false;});
+}
+function openBulkSendEmailModal(){
+  const sel=document.getElementById('bulkEmailEvent');
+  if(sel){
+    sel.innerHTML=EVTS.length?EVTS.map((e,i)=>`<option value="${i}">${escapeHtml(e.name||'Event')}</option>`).join(''):'<option value="">No events</option>';
+    const cur=document.getElementById('invE')?.value;
+    if(cur!==undefined&&EVTS.length&&sel.querySelector(`option[value="${String(cur)}"]`))sel.value=String(cur);
+    else if(EVTS.length)sel.value='0';
+  }
+  syncBulkEmailSubjectFromEvent();
+  renderBulkEmailDigCheckboxes();
+  const msgEl=document.getElementById('bulkEmailMsg');
+  if(msgEl){
+    const note=(document.getElementById('invCustomMsg')?.value||'').trim();
+    msgEl.value=note;
+  }
+  openM('bulkSendEmail');
+}
+async function sendBulkInvitationEmails(){
+  const box=document.getElementById('m-bulkSendEmail');
+  if(box){
+    let okSub=true;
+    box.querySelectorAll('.field-error').forEach(e=>e.remove());
+    const subEl=document.getElementById('bulkEmailSubject');
+    if(subEl){
+      subEl.classList.remove('in-err');
+      if(!(subEl.value||'').trim()){
+        okSub=false;
+        subEl.classList.add('in-err');
+        const m=document.createElement('div');m.className='field-error';m.textContent='Required field';
+        subEl.parentElement.appendChild(m);
+      }
+    }
+    if(!okSub){toast('Enter a subject','ts');return;}
+  }
+  const ei=Number(document.getElementById('bulkEmailEvent')?.value||-1);
+  if(!Number.isFinite(ei)||ei<0||!EVTS[ei]){toast('Select an event','ts');return;}
+  const emailSubject=(document.getElementById('bulkEmailSubject')?.value||'').trim();
+  const customMsg=(document.getElementById('bulkEmailMsg')?.value||'').trim();
+  const checked=[...document.querySelectorAll('.bulkEmailDigChk:checked')].map(c=>Number(c.value)).filter(n=>Number.isFinite(n)&&n>=0&&n<DIG.length);
+  if(!checked.length){toast('Select at least one dignitary with an email address','ts');return;}
+  const actorUser=USERS.find(u=>String(u.name||'')===String(actorName||''));
+  const sender=actorUser||USERS.find(u=>u.role==='Admin')||USERS[0];
+  if(!sender?.dbId){toast('No user record for sender.','ts');return;}
+  const e=EVTS[ei];
+  if(!e?.dbId){toast('Event is not saved on the server. Refresh after login.','ts');return;}
+  closeM('bulkSendEmail');
+  toast(`Sending ${checked.length} invitation email(s)…`,'ts');
+  const invPage=document.getElementById('page-invitations');
+  if(invPage&&!invPage.classList.contains('active')){
+    nav('invitations');
+    await new Promise(r=>setTimeout(r,140));
+  }
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  if(typeof repairPdfLayoutIfNeeded==='function')repairPdfLayoutIfNeeded();
+  await new Promise(r=>setTimeout(r,80));
+  let ok=0,fail=0;
+  const fails=[];
+  for(const di of checked){
+    const d=DIG[di];
+    if(!d?.dbId){fail++;fails.push(`${d?.fn||'?'}: not synced`);continue;}
+    if(!(String(d.email||'').trim())){fail++;continue;}
+    let pdfBase64=null;
+    try{
+      const pdfDoc=await renderPdfBlobForSelection(ei,di);
+      const dataUri=pdfDoc.output('datauristring');
+      const comma=dataUri.indexOf(',');
+      if(comma>=0)pdfBase64=dataUri.slice(comma+1);
+    }catch(_e){
+      fail++;
+      fails.push(`${d.fn||''} ${d.ln||''}: PDF`.trim()||'PDF error');
+      continue;
+    }
+    if(!pdfBase64){fail++;fails.push(`${d.fn||''} ${d.ln||''}: PDF empty`.trim());continue;}
+    try{
+      const created=await apiRequest('/api/invitations',{
+        method:'POST',
+        body:JSON.stringify({dignitaryId:d.dbId,eventId:e.dbId,customMessage:customMsg})
+      });
+      await apiRequest('/api/invitations/'+created.id+'/send-email',{
+        method:'POST',
+        body:JSON.stringify({userId:sender.dbId,pdfBase64,emailSubject})
+      });
+      ok++;
+    }catch(err){
+      fail++;
+      const nm=`${d.fn||''} ${d.ln||''}`.trim()||'Recipient';
+      fails.push(nm+': '+(err.message||'send failed'));
+    }
+    await new Promise(r=>setTimeout(r,120));
+  }
+  await syncBackendData();
+  renderComms();
+  const tail=fail?` · ${fail} failed`:'';
+  toast(`Bulk email finished: ${ok} sent${tail}.`,'ts');
+  if(fails.length&&fails.length<=6)fails.forEach(f=>toast(f,'ts'));
 }
 function enhanceUI(){
   document.querySelectorAll('.card,.stat-card,.ec,.name-card').forEach((el,i)=>{
@@ -2675,6 +2815,67 @@ function toast(m,c){const t=document.getElementById('toastEl');t.textContent=m;t
 
 // PDF
 const PD=[];
+/** Fit absolutely positioned layers inside the html2canvas clone (root = cloned #pdfPv). */
+function finalizePdfPvCloneForCapture(clonedDoc, root){
+  if(!root||!clonedDoc||!clonedDoc.defaultView)return;
+  root.style.overflow='visible';
+  const win=clonedDoc.defaultView;
+  const rcs=win.getComputedStyle(root);
+  const pl=parseFloat(rcs.paddingLeft)||0;
+  const pr=parseFloat(rcs.paddingRight)||0;
+  const pt=parseFloat(rcs.paddingTop)||0;
+  const pb=parseFloat(rcs.paddingBottom)||0;
+  const innerW=Math.max(260,root.clientWidth-pl-pr);
+  const innerH=Math.max(360,root.clientHeight-pt-pb);
+  const stack=root.querySelector('#pvStack');
+  if(!stack)return;
+  stack.querySelectorAll('.pv-el').forEach(el=>{
+    const pos=win.getComputedStyle(el).position;
+    if(pos!=='absolute')return;
+    let left=parseFloat(el.style.left)||0;
+    let top=parseFloat(el.style.top)||0;
+    let w=el.offsetWidth||0;
+    let h=el.offsetHeight||0;
+    if(left<4){left=4;el.style.left=left+'px';}
+    if(top<4){top=4;el.style.top=top+'px';}
+    const pad=6;
+    if(left+w>innerW-pad){
+      const nw=Math.max(48,innerW-left-pad);
+      el.style.width=nw+'px';
+      el.style.boxSizing='border-box';
+      const img=el.querySelector('img');
+      if(img){
+        img.style.width='100%';
+        img.style.maxWidth='100%';
+        img.style.height='auto';
+        img.style.maxHeight='160px';
+        img.style.objectFit='contain';
+        img.style.display='block';
+        img.style.margin='0 auto';
+      }
+    }
+    if(top+h>innerH-pad){
+      const isImgLayer=el.classList.contains('pv-img-layer');
+      const isLogoImg=el.id==='pvLogo'&&el.querySelector('img');
+      const isQrImg=el.id==='pvQr'&&el.querySelector('img.pv-qr-img');
+      if(isImgLayer||isLogoImg||isQrImg){
+        const nh=Math.max(40,innerH-top-pad);
+        el.style.minHeight=nh+'px';
+        el.style.height=nh+'px';
+        el.style.overflow='hidden';
+        const img=el.querySelector('img');
+        if(img){
+          img.style.maxHeight='100%';
+          img.style.width='auto';
+          img.style.maxWidth='100%';
+          img.style.objectFit='contain';
+          img.style.display='block';
+          img.style.margin='0 auto';
+        }
+      }
+    }
+  });
+}
 function updPDF(){
   const i=Number(document.getElementById('invD').value);
   const d=DIG[i];
@@ -2710,7 +2911,16 @@ async function renderPdfBlobForSelection(eventIdx,digIdx){
   if(typeof window.html2canvas!=='function' || !window.jspdf?.jsPDF){
     throw new Error('PDF libraries not loaded');
   }
-  const canvas=await window.html2canvas(pv,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+  const canvas=await window.html2canvas(pv,{
+    scale:2,
+    useCORS:true,
+    backgroundColor:'#ffffff',
+    scrollX:0,
+    scrollY:0,
+    onclone(clonedDoc,clonedEl){
+      finalizePdfPvCloneForCapture(clonedDoc,clonedEl);
+    }
+  });
   const imgData=canvas.toDataURL('image/png');
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});

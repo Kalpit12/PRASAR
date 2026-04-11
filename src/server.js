@@ -130,7 +130,7 @@ app.use(
 
 const invitationEmailLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: Number(process.env.PRASAR_EMAIL_RATE_LIMIT_PER_HOUR || 30),
+  max: Number(process.env.PRASAR_EMAIL_RATE_LIMIT_PER_HOUR || 120),
   message: { error: "Too many invitation emails. Try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -592,7 +592,7 @@ app.get("/api/invitations/:id/pdf", async (req, res) => {
 });
 
 app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, res) => {
-  const { userId, pdfBase64 } = req.body || {};
+  const { userId, pdfBase64, emailSubject } = req.body || {};
   if (!userId) return badRequest(res, "userId is required.");
   const sender = await db.query("SELECT id FROM users WHERE id = $1", [userId]);
   if (!sender.rows[0]) return badRequest(res, "Invalid userId.");
@@ -620,7 +620,9 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
     }
   }
 
-  const subject = `Invitation: ${invite.event_title}`;
+  const customSub = typeof emailSubject === "string" ? emailSubject.trim() : "";
+  const subjectClean = customSub ? cleanText(customSub, 200) : "";
+  const subject = subjectClean || `Invitation: ${invite.event_title}`;
   const html = invitationRender.buildInvitationEmailHtml(invite);
   const dateLine = invitationRender.formatDateDisplay(invite.event_date);
   const textBody = [
