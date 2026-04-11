@@ -538,8 +538,8 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <div><div class="card mb20"><div class="card-hd"><h3>Configure Invitation</h3></div><div class="card-bd">
   <div class="fg" style="margin-bottom:14px"><label>Select Event</label><select id="invE" onchange="updPDF()"><option value="">No sample events configured</option></select></div>
   <div class="fg" style="margin-bottom:14px"><label>Select Dignitary</label><select id="invD" onchange="updPDF()"><option value="">No sample dignitaries configured</option></select></div>
-  <div class="fg" style="margin-bottom:14px"><label>Custom Message</label><textarea placeholder="Add a personal note…"></textarea></div>
-  <div class="bg"><button class="btn btn-p" onclick="generateInvitationPdf()">🖨️ Generate PDF</button><button class="btn btn-w" onclick="toast('WhatsApp opened!','ts')">💬 WhatsApp</button><button class="btn btn-o" onclick="openM('sendEmail')">📧 Email</button></div>
+  <div class="fg" style="margin-bottom:14px"><label>Custom Message</label><textarea id="invCustomMsg" placeholder="Add a personal note…"></textarea></div>
+  <div class="bg"><button class="btn btn-p" onclick="generateInvitationPdf()">🖨️ Generate PDF</button><button class="btn btn-w" onclick="toast('WhatsApp opened!','ts')">💬 WhatsApp</button><button class="btn btn-o" onclick="openSendEmailModal()">📧 Email</button></div>
 </div></div></div>
 <div><div class="card"><div class="card-hd pv-card-hd"><h3>PDF Preview</h3>
   <div class="pv-toolbar admin-only">
@@ -876,9 +876,10 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 </div></div></div>
 
 <div class="mo" id="m-sendEmail"><div class="modal"><div class="mh"><h3>Send Invitation Email</h3><button class="mc" onclick="closeM('sendEmail')">✕</button></div><div class="mb">
-  <div class="fg" style="margin-bottom:14px"><label>To</label><input placeholder="Recipient email" data-req="true"></div>
-  <div class="fg" style="margin-bottom:14px"><label>Subject</label><input placeholder="Invitation subject" data-req="true"></div>
-  <div class="fg" style="margin-bottom:18px"><label>Message</label><textarea placeholder="Short note…" data-req="true"></textarea></div>
+  <p style="font-size:.8rem;color:var(--text-muted);margin:0 0 10px">Email is sent by the server (Postmark on live). It goes <strong>to</strong> the dignitary below — not to your own login email.</p>
+  <div class="fg" style="margin-bottom:14px"><label>Recipient</label><input id="sendEmailTo" readonly placeholder="Select dignitary above first" style="background:var(--bg-soft)"></div>
+  <div class="fg" style="margin-bottom:14px"><label>Subject</label><input id="sendEmailSubject" readonly style="background:var(--bg-soft)"></div>
+  <div class="fg" style="margin-bottom:18px"><label>Message</label><textarea id="sendEmailBody" placeholder="Optional personal note for the email body…"></textarea></div>
   <div class="bg"><button class="btn btn-p" onclick="sendInviteEmail()">Send</button><button class="btn btn-o" onclick="closeM('sendEmail')">Cancel</button></div>
 </div></div></div>
 
@@ -2394,7 +2395,69 @@ async function saveKar(){
   }catch(e){toast(e.message||'Failed to create karyakar');}
 }
 function saveGift(){if(!validateModal('logGift'))return;closeM('logGift');toast('Gift logged','ts')}
-function sendInviteEmail(){if(!validateModal('sendEmail'))return;closeM('sendEmail');toast('Email queued (prototype)','ts')}
+function openSendEmailModal(){
+  const di=Number(document.getElementById('invD')?.value||-1);
+  const ei=Number(document.getElementById('invE')?.value||-1);
+  if(!Number.isFinite(di)||di<0||!Number.isFinite(ei)||ei<0){
+    toast('Select an event and a dignitary first.','ts');return;
+  }
+  const d=DIG[di],e=EVTS[ei];
+  if(!d||!e){toast('Invalid selection','ts');return;}
+  if(!(String(d.email||'').trim())){
+    toast('This dignitary has no email. Edit the profile and add an official email.','ts');return;
+  }
+  const noteEl=document.getElementById('invCustomMsg');
+  const note=(noteEl&&noteEl.value)?noteEl.value.trim():'';
+  const toEl=document.getElementById('sendEmailTo');
+  const subEl=document.getElementById('sendEmailSubject');
+  const bodyEl=document.getElementById('sendEmailBody');
+  if(toEl)toEl.value=String(d.email||'').trim();
+  if(subEl)subEl.value=`Invitation: ${e.name||'Event'}`;
+  if(bodyEl)bodyEl.value=note;
+  openM('sendEmail');
+}
+async function sendInviteEmail(){
+  if(!validateModal('sendEmail'))return;
+  const di=Number(document.getElementById('invD')?.value||-1);
+  const ei=Number(document.getElementById('invE')?.value||-1);
+  const d=DIG[di],e=EVTS[ei];
+  if(!d?.dbId||!e?.dbId){
+    toast('Missing event or dignitary. Refresh the page after login.','ts');return;
+  }
+  const customMsg=(document.getElementById('sendEmailBody')?.value||'').trim();
+  const actorUser=USERS.find(u=>String(u.name||'')===String(actorName||''));
+  const sender=actorUser||USERS.find(u=>u.role==='Admin')||USERS[0];
+  if(!sender?.dbId){
+    toast('No user record for sender. Open User Mgmt and ensure users are loaded.','ts');return;
+  }
+  try{
+    const created=await apiRequest('/api/invitations',{
+      method:'POST',
+      body:JSON.stringify({
+        dignitaryId:d.dbId,
+        eventId:e.dbId,
+        customMessage:customMsg
+      })
+    });
+    const invId=created.id;
+    const result=await apiRequest('/api/invitations/'+invId+'/send-email',{
+      method:'POST',
+      body:JSON.stringify({userId:sender.dbId})
+    });
+    closeM('sendEmail');
+    await syncBackendData();
+    renderComms();
+    if(result.provider==='postmark'&&result.messageId){
+      toast('Email sent via Postmark.','ts');
+    }else if(result.outboxFile){
+      toast('Email saved to server outbox: '+result.outboxFile,'ts');
+    }else{
+      toast('Email sent.','ts');
+    }
+  }catch(err){
+    toast(err.message||'Send failed','ts');
+  }
+}
 function enhanceUI(){
   document.querySelectorAll('.card,.stat-card,.ec,.name-card').forEach((el,i)=>{
     el.classList.add('reveal');
