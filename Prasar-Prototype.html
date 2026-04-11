@@ -393,7 +393,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <div class="remember-row"><input type="checkbox" id="rememberMe" checked><label for="rememberMe">Remember me</label></div>
   <button class="login-btn" onclick="doLogin()">Enter PRASAR →</button>
 </div>
-<div class="login-ft">BAPS Swaminarayan Sanstha · Africa Region · v1.0<br><span style="display:block;margin-top:8px;line-height:1.45"><strong>Admin:</strong> username <code>admin</code>, password <code>admin123</code>.<br><strong>Karyakar:</strong> use your <strong>email</strong> and the password an admin set for you (User Management → Edit). Legacy demo: <code>karyakar</code> / <code>karyakar123</code>.</span></div>
+<div class="login-ft">BAPS Swaminarayan Sanstha · Africa Region · v1.0</div>
 </div>
 </div>
 
@@ -2747,7 +2747,7 @@ async function doLogin(){
     const legacyOk=(u==='karyakar'&&p==='karyakar123')||(!!kMatch&&p==='karyakar123');
     if(!legacyOk){
       shakeLogin();
-      toast('Invalid credentials. Use your email + password, or legacy demo karyakar / karyakar123.');
+      toast('Invalid credentials.');
       return;
     }
     actorName=kMatch?.name||u||'Karyakar User';
