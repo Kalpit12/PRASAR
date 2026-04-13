@@ -816,7 +816,7 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
   if (!sender.rows[0]) return badRequest(res, "Invalid userId.");
 
   const inviteResult = await db.query(`
-      SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.designation, d.organization, d.email,
+      SELECT i.id, i.custom_message, d.full_name AS dignitary_name, d.salutation AS dignitary_salutation, d.designation, d.organization, d.email,
              e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
@@ -842,9 +842,10 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
   const subjectClean = customSub ? cleanText(customSub, 200) : "";
   const subject = subjectClean || `Invitation: ${invite.event_title}`;
   const html = invitationRender.buildInvitationEmailHtml(invite);
+  const dignitaryDisplayName = invitationRender.formatDignitaryName(invite);
   const dateLine = invitationRender.formatDateDisplay(invite.event_date);
   const textBody = [
-    `Dear ${invite.dignitary_name},`,
+    `Dear ${dignitaryDisplayName},`,
     "",
     invite.custom_message ? String(invite.custom_message).trim() : "You are cordially invited.",
     "",

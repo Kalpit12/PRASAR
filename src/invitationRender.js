@@ -35,6 +35,16 @@ function formatDateDisplay(raw) {
   }
   return s;
 }
+function formatDignitaryName(invite) {
+  const rawName = String(invite?.dignitary_name || "").trim();
+  const salutation = String(invite?.dignitary_salutation || invite?.salutation || "").trim();
+  if (!rawName) return salutation || "Guest";
+  if (!salutation) return rawName;
+  const salNorm = salutation.toLowerCase().replace(/\./g, "").trim();
+  const nameNorm = rawName.toLowerCase().replace(/\./g, "").trim();
+  if (nameNorm === salNorm || nameNorm.startsWith(`${salNorm} `)) return rawName;
+  return `${salutation} ${rawName}`.trim();
+}
 
 /** Header logo for HTML email: public URL preferred for inbox clients; else inline PNG. */
 function buildLogoHtmlForEmail() {
@@ -57,7 +67,7 @@ function buildLogoHtmlForEmail() {
  */
 function buildInvitationEmailHtml(invite) {
   const logoBlock = buildLogoHtmlForEmail();
-  const name = escapeHtml(invite.dignitary_name);
+  const name = escapeHtml(formatDignitaryName(invite));
   const title = escapeHtml(invite.event_title);
   const venue = escapeHtml(invite.venue);
   const time = escapeHtml(invite.event_time || "");
@@ -211,6 +221,7 @@ function renderInvitationPdfBuffer(invite) {
 module.exports = {
   escapeHtml,
   formatDateDisplay,
+  formatDignitaryName,
   buildInvitationEmailHtml,
   renderInvitationPdfBuffer,
 };
