@@ -367,6 +367,13 @@ app.get("/api/reload-hash", (_req, res) => {
     res.status(500).json({ error: "reload hash unavailable" });
   }
 });
+app.get("/api/email/delivery-status", (_req, res) => {
+  const postmarkConfigured = postmark.isConfigured();
+  return res.json({
+    postmarkConfigured,
+    mode: postmarkConfigured ? "postmark" : "local",
+  });
+});
 
 app.get("/api/users", async (_req, res) => {
   try {

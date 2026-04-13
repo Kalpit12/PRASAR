@@ -615,9 +615,9 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <div class="page" id="page-communications">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Communication Timeline</h2><button class="btn btn-s btn-sm" onclick="openM('logInt')">+ Log Interaction</button></div>
 <div class="fb">
-  <select><option value="">All Types</option><option>Phone Call</option><option>WhatsApp</option><option>Email</option><option>Visit</option></select>
+  <select id="comTypeFilter"><option value="">All Types</option><option>Phone Call</option><option>WhatsApp</option><option>Email</option><option>Visit</option><option>PDF Sent</option><option>Gift</option></select>
   <select id="comKarFilter"><option value="">All Karyakars</option></select>
-  <input type="date"><span style="font-size:.82rem;color:var(--text-muted)" id="comCountLbl">0 interactions</span>
+  <input id="comDateFilter" type="date"><span style="font-size:.82rem;color:var(--text-muted)" id="comCountLbl">0 interactions</span>
 </div>
 <div class="card"><div class="card-bd">
   <div class="empty-state" id="comEmpty">
@@ -633,7 +633,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <!-- ══ QR ATTENDANCE ══ -->
 <div class="page" id="page-attendance">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>QR Code Attendance</h2>
-  <select class="btn btn-o btn-sm" style="padding:8px 14px"><option>No event selected</option></select></div>
+  <select id="attEventFilter" class="btn btn-o btn-sm" style="padding:8px 14px"><option>No event selected</option></select></div>
 <div class="g2 mb28">
   <div class="card" style="text-align:center"><div class="card-hd"><h3>Gate Scanner</h3></div><div class="card-bd">
     <div class="sf"><div class="sl"></div><div class="scn"></div></div>
@@ -657,7 +657,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <!-- ══ HOSPITALITY ══ -->
 <div class="page" id="page-hospitality">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Hospitality Tracker</h2>
-  <select class="btn btn-o btn-sm" style="padding:8px 14px"><option>No event selected</option></select></div>
+  <select id="hospEventFilter" class="btn btn-o btn-sm" style="padding:8px 14px"><option>No event selected</option></select></div>
 <div class="stats-grid mb28">
   <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="val">—</div><div class="lbl">Meals Served</div></div>
   <div class="stat-card"><div class="acc" style="background:var(--warning)"></div><div class="val">—</div><div class="lbl">Special Dietary</div></div>
@@ -986,6 +986,9 @@ function splitName(fullName){
   const parts=String(fullName||'').trim().split(/\s+/).filter(Boolean);
   return {fn:parts[0]||'',ln:parts.slice(1).join(' ')||''};
 }
+function isValidEmailAddr(v){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim());
+}
 function escapeHtml(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -1252,6 +1255,7 @@ function commTypeKey(t){
   if(s.includes('phone'))return 'phone';
   if(s.includes('visit'))return 'visit';
   if(s.includes('pdf'))return 'pdf';
+  if(s.includes('gift'))return 'gift';
   return 'other';
 }
 function updateDashboardAnalytics(){
@@ -2037,6 +2041,22 @@ function roleScopedComms(){
     return (a && by===a) || names.has(who);
   });
 }
+function filterComms(list){
+  const typeVal=String(document.getElementById('comTypeFilter')?.value||'').trim().toLowerCase();
+  const karVal=String(document.getElementById('comKarFilter')?.value||'').trim().toLowerCase();
+  const dateVal=String(document.getElementById('comDateFilter')?.value||'').trim();
+  const wantedType=typeVal?commTypeKey(typeVal):'';
+  return (list||[]).filter(c=>{
+    const by=String(c.by||'').trim().toLowerCase();
+    if(karVal && by!==karVal)return false;
+    if(wantedType && commTypeKey(c.type)!==wantedType)return false;
+    if(dateVal){
+      const d=new Date(c.when||'');
+      if(Number.isNaN(d.getTime()) || d.toISOString().slice(0,10)!==dateVal)return false;
+    }
+    return true;
+  });
+}
 function shouldShowAboutOnLogin(){
   try{return localStorage.getItem(aboutSkipKey())!=='1'}catch(_e){return true}
 }
@@ -2084,6 +2104,17 @@ function refreshInviteSelectors(){
   if(invE){invE.innerHTML=EVTS.length?EVTS.map((e,i)=>`<option value="${i}">${e.name}</option>`).join(''):'<option value="">No sample events configured</option>';}
   if(bulkEvent){bulkEvent.innerHTML=EVTS.length?EVTS.map((e,i)=>`<option value="${i}">${e.name}</option>`).join(''):'<option value="">No events available</option>';}
   if(intDig){intDig.innerHTML=ds.length?ds.map((d,i)=>`<option value="${DIG.indexOf(d)}">${d.pre} ${d.fn} ${d.ln}</option>`).join(''):'<option>No assigned dignitaries available</option>';}
+  ['attEventFilter','hospEventFilter'].forEach((id)=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const prev=String(el.value||'');
+    if(!EVTS.length){
+      el.innerHTML='<option value="">No event selected</option>';
+      return;
+    }
+    el.innerHTML='<option value="">All Events</option>'+EVTS.map((e,i)=>`<option value="${i}">${e.name}</option>`).join('');
+    if(prev && el.querySelector(`option[value="${prev}"]`))el.value=prev;
+  });
 }
 function renderEvents(){
   const empty=document.getElementById('eventsEmpty'),wrap=document.getElementById('eventsDynWrap');if(!empty||!wrap)return;
@@ -2094,11 +2125,13 @@ function renderEvents(){
 }
 function renderComms(){
   const empty=document.getElementById('comEmpty'),tl=document.getElementById('comTimeline'),lbl=document.getElementById('comCountLbl');
-  if(lbl)lbl.textContent=`${COMMS.length} interactions`;
+  const scoped=roleScopedComms();
+  const rows=filterComms(scoped);
+  if(lbl)lbl.textContent=rows.length===scoped.length?`${rows.length} interactions`:`${rows.length} of ${scoped.length} interactions`;
   if(!empty||!tl)return;
-  if(!COMMS.length){empty.style.display='flex';tl.style.display='none';tl.innerHTML='';return;}
+  if(!rows.length){empty.style.display='flex';tl.style.display='none';tl.innerHTML='';return;}
   empty.style.display='none';tl.style.display='block';
-  tl.innerHTML=COMMS.slice().reverse().map(c=>`<div class="tli"><div class="tl-d">${c.when} · ${c.by||'System'}</div><div class="tl-t">${c.type} — ${c.who}</div><div class="tl-p">${c.note||'No notes'}</div></div>`).join('');
+  tl.innerHTML=rows.slice().reverse().map(c=>`<div class="tli"><div class="tl-d">${c.when} · ${c.by||'System'}</div><div class="tl-t">${c.type} — ${c.who}</div><div class="tl-p">${c.note||'No notes'}</div></div>`).join('');
   updateNotifications();
   updateDashboardAnalytics();
   updateReportsAnalytics();
@@ -2112,6 +2145,10 @@ async function saveDig(){
     email:(document.getElementById('digEmail').value||'').trim(),
     wa:(document.getElementById('digWa').value||'').trim()
   };
+  if(!isValidEmailAddr(next.email)){
+    toast('Enter a valid dignitary email address.');
+    return;
+  }
   if(DIG.some(d=>digKey(d)===digKey(next))){toast('Duplicate dignitary skipped');return;}
   try{
     const karRaw=(document.getElementById('addDigKar').value||'').trim();
@@ -2330,13 +2367,16 @@ function syncKaryakarOptions(){
   const active=USERS.filter(u=>u.status==='Active');
   const mk=(id,emptyLabel)=>{
     const el=document.getElementById(id);if(!el)return;
+    const prev=String(el.value||'');
     if(!active.length){el.innerHTML=`<option value="">${emptyLabel}</option>`;return;}
     const first=id==='addDigKar'?'Select karyakar':'All Karyakars';
     el.innerHTML=`<option value="">${first}</option>`+active.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+    if(prev && el.querySelector(`option[value="${prev}"]`))el.value=prev;
   };
   mk('digKarFilter','No karyakars available');
   mk('comKarFilter','No karyakars available');
   mk('addDigKar','No karyakars available');
+  if(document.getElementById('comTimeline'))renderComms();
 }
 function renderKarPerf(){
   const body=document.getElementById('karPerfBody');if(!body)return;
@@ -2612,8 +2652,20 @@ async function sendBulkInvitationEmails(){
   if(!sender?.dbId){toast('No user record for sender.','ts');return;}
   const e=EVTS[ei];
   if(!e?.dbId){toast('Event is not saved on the server. Refresh after login.','ts');return;}
+  let emailMode='local';
+  try{
+    const st=await apiRequest('/api/email/delivery-status');
+    emailMode=st?.mode||'local';
+    if(!st?.postmarkConfigured){
+      toast('Postmark is not configured on the server. Bulk email halted.','ts');
+      return;
+    }
+  }catch(_e){
+    toast('Could not verify email provider status. Try again.','ts');
+    return;
+  }
   closeM('bulkSendEmail');
-  toast(`Sending ${checked.length} invitation email(s)…`,'ts');
+  toast(`Sending ${checked.length} invitation email(s) via ${emailMode}…`,'ts');
   const invPage=document.getElementById('page-invitations');
   if(invPage&&!invPage.classList.contains('active')){
     nav('invitations');
@@ -2623,6 +2675,7 @@ async function sendBulkInvitationEmails(){
   if(typeof repairPdfLayoutIfNeeded==='function')repairPdfLayoutIfNeeded();
   await new Promise(r=>setTimeout(r,80));
   let ok=0,fail=0;
+  let postmarkOk=0,localOk=0;
   const fails=[];
   for(const di of checked){
     const d=DIG[di];
@@ -2645,10 +2698,12 @@ async function sendBulkInvitationEmails(){
         method:'POST',
         body:JSON.stringify({dignitaryId:d.dbId,eventId:e.dbId,customMessage:customMsg})
       });
-      await apiRequest('/api/invitations/'+created.id+'/send-email',{
+      const result=await apiRequest('/api/invitations/'+created.id+'/send-email',{
         method:'POST',
         body:JSON.stringify({userId:sender.dbId,pdfBase64,emailSubject})
       });
+      if(result?.provider==='postmark')postmarkOk++;
+      else localOk++;
       ok++;
     }catch(err){
       fail++;
@@ -2660,7 +2715,8 @@ async function sendBulkInvitationEmails(){
   await syncBackendData();
   renderComms();
   const tail=fail?` · ${fail} failed`:'';
-  toast(`Bulk email finished: ${ok} sent${tail}.`,'ts');
+  const modeTail=` · Postmark: ${postmarkOk}`+(localOk?` · Local: ${localOk}`:'');
+  toast(`Bulk email finished: ${ok} sent${tail}${modeTail}.`,'ts');
   if(fails.length&&fails.length<=6)fails.forEach(f=>toast(f,'ts'));
 }
 function enhanceUI(){
@@ -2918,6 +2974,10 @@ function filterDig(){
   }));
 }
 document.getElementById('fCat').addEventListener('change',filterDig);document.getElementById('fSt').addEventListener('change',filterDig);document.getElementById('digKarFilter').addEventListener('change',filterDig);
+['comTypeFilter','comKarFilter','comDateFilter'].forEach((id)=>{
+  const el=document.getElementById(id);
+  if(el)el.addEventListener('change',renderComms);
+});
 
 // MODALS
 function openM(n){document.getElementById('m-'+n).classList.add('show')}
@@ -3186,19 +3246,26 @@ function toggleNotifications(){
 // CHARTS
 const CO={responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'DM Sans',size:11},padding:12,usePointStyle:true}}}};
 const N='#1A237E',S='#E8820C',G='#C9A84C',SU='#2E7D32',IN='#0277BD';
+function upsertChart(id,config){
+  const canvas=document.getElementById(id);
+  if(!canvas)return null;
+  const existing=Chart.getChart(canvas);
+  if(existing)existing.destroy();
+  return new Chart(canvas,config);
+}
 
 function initCharts(){
   document.querySelectorAll('.cc,.cc-s').forEach(el=>el.classList.add('skeleton'));
-  new Chart(document.getElementById('cAtt'),{type:'line',data:{labels:['Event 1','Event 2','Event 3','Event 4','Event 5','Event 6'],
+  upsertChart('cAtt',{type:'line',data:{labels:['Event 1','Event 2','Event 3','Event 4','Event 5','Event 6'],
     datasets:[{label:'Invited',data:[0,0,0,0,0,0],borderColor:N,backgroundColor:'rgba(26,35,126,.08)',fill:true,tension:.4},
       {label:'Attended',data:[0,0,0,0,0,0],borderColor:S,backgroundColor:'rgba(232,130,12,.08)',fill:true,tension:.4}]},
     options:{...CO,scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}}}});
-  new Chart(document.getElementById('cCat'),{type:'doughnut',data:{labels:['Govt','Corporate','Academic','Religious','NGO'],
+  upsertChart('cCat',{type:'doughnut',data:{labels:['Govt','Corporate','Academic','Religious','NGO'],
     datasets:[{data:[0,0,0,0,0],backgroundColor:[N,'#00695C','#E65100','#880E4F','#01579B']}]},options:{...CO,cutout:'65%'}});
-  new Chart(document.getElementById('cChn'),{type:'bar',data:{labels:['WhatsApp','Email','Phone','In-Person','PDF'],
+  upsertChart('cChn',{type:'bar',data:{labels:['WhatsApp','Email','Phone','In-Person','PDF'],
     datasets:[{label:'Messages',data:[0,0,0,0,0],backgroundColor:[S,N,G,SU,IN]}]},
     options:{...CO,indexAxis:'y',scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}},y:{grid:{display:false}}}}});
-  new Chart(document.getElementById('cReg'),{type:'polarArea',data:{labels:['Kenya','South Africa','Tanzania','Uganda','Rwanda','Others'],
+  upsertChart('cReg',{type:'polarArea',data:{labels:['Kenya','South Africa','Tanzania','Uganda','Rwanda','Others'],
     datasets:[{data:[0,0,0,0,0,0],backgroundColor:['rgba(26,35,126,.7)','rgba(232,130,12,.7)','rgba(201,168,76,.7)','rgba(46,125,50,.7)','rgba(2,119,189,.7)','rgba(158,158,158,.5)']}]},options:{...CO}});
   updateDashboardAnalytics();
   setTimeout(()=>document.querySelectorAll('.cc,.cc-s').forEach(el=>el.classList.remove('skeleton')),350);
@@ -3338,6 +3405,8 @@ function reloadHashFetchInit(){
   return h;
 }
 async function initAutoReload(){
+  if(!(window.location.protocol==='http:'||window.location.protocol==='https:'))return;
+  if(!(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'))return;
   try{
     const r=await fetch('/api/reload-hash',{cache:'no-store',headers:reloadHashFetchInit()});
     if(!r.ok)return;
