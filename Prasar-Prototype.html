@@ -1065,15 +1065,40 @@ function commTypeToApi(t){
   return 'EMAIL';
 }
 function mapCommFromApi(c){
+  const iso=String(c.happened_at||'').trim();
+  const dt=iso?new Date(iso):null;
+  const ms=(dt && !Number.isNaN(dt.getTime()))?dt.getTime():0;
   return {
     id:Number(c.id),
     digId:Number(c.dignitary_id)||0,
     who:c.dignitary_name||'Unknown',
     type:commTypeToUi(c.type),
     note:c.notes||'',
-    when:c.happened_at?new Date(c.happened_at).toLocaleString():'—',
+    when:ms?new Date(ms).toLocaleString():'—',
+    happenedAtIso:iso,
+    happenedAtMs:ms,
     by:c.user_name||'System'
   };
+}
+function commSortMs(c){
+  const direct=Number(c?.happenedAtMs||0);
+  if(Number.isFinite(direct)&&direct>0)return direct;
+  const iso=String(c?.happenedAtIso||'').trim();
+  if(iso){
+    const d=new Date(iso);
+    const t=d.getTime();
+    if(!Number.isNaN(t))return t;
+  }
+  const d=new Date(String(c?.when||''));
+  const t=d.getTime();
+  return Number.isNaN(t)?0:t;
+}
+function sortCommsNewest(list){
+  return [...(list||[])].sort((a,b)=>{
+    const dt=commSortMs(b)-commSortMs(a);
+    if(dt!==0)return dt;
+    return Number(b?.id||0)-Number(a?.id||0);
+  });
 }
 async function syncBackendData(){
   const [users,digs,events,comms]=await Promise.all([
@@ -1338,7 +1363,7 @@ function updateDashboardAnalytics(){
 
   const tl=document.getElementById('dashRecentTl');
   if(tl){
-    const recent=comms.slice().reverse().slice(0,6);
+    const recent=sortCommsNewest(comms).slice(0,6);
     if(!recent.length){
       tl.innerHTML='<div class="tli"><div class="tl-d">—</div><div class="tl-t">No activity logged yet.</div><div class="tl-p">New communications will appear here once recorded.</div></div>';
     }else{
@@ -2051,8 +2076,13 @@ function filterComms(list){
     if(karVal && by!==karVal)return false;
     if(wantedType && commTypeKey(c.type)!==wantedType)return false;
     if(dateVal){
-      const d=new Date(c.when||'');
-      if(Number.isNaN(d.getTime()) || d.toISOString().slice(0,10)!==dateVal)return false;
+      const iso=String(c.happenedAtIso||'').trim();
+      if(iso){
+        if(iso.slice(0,10)!==dateVal)return false;
+      }else{
+        const d=new Date(c.when||'');
+        if(Number.isNaN(d.getTime()) || d.toISOString().slice(0,10)!==dateVal)return false;
+      }
     }
     return true;
   });
@@ -2127,11 +2157,12 @@ function renderComms(){
   const empty=document.getElementById('comEmpty'),tl=document.getElementById('comTimeline'),lbl=document.getElementById('comCountLbl');
   const scoped=roleScopedComms();
   const rows=filterComms(scoped);
+  const sorted=sortCommsNewest(rows);
   if(lbl)lbl.textContent=rows.length===scoped.length?`${rows.length} interactions`:`${rows.length} of ${scoped.length} interactions`;
   if(!empty||!tl)return;
-  if(!rows.length){empty.style.display='flex';tl.style.display='none';tl.innerHTML='';return;}
+  if(!sorted.length){empty.style.display='flex';tl.style.display='none';tl.innerHTML='';return;}
   empty.style.display='none';tl.style.display='block';
-  tl.innerHTML=rows.slice().reverse().map(c=>`<div class="tli"><div class="tl-d">${c.when} · ${c.by||'System'}</div><div class="tl-t">${c.type} — ${c.who}</div><div class="tl-p">${c.note||'No notes'}</div></div>`).join('');
+  tl.innerHTML=sorted.map(c=>`<div class="tli"><div class="tl-d">${c.when} · ${c.by||'System'}</div><div class="tl-t">${c.type} — ${c.who}</div><div class="tl-p">${c.note||'No notes'}</div></div>`).join('');
   updateNotifications();
   updateDashboardAnalytics();
   updateReportsAnalytics();
@@ -3227,7 +3258,7 @@ function updateNotifications(){
   if(!panel||!dot)return;
   let cleared=0;
   try{cleared=Number(localStorage.getItem(NOTIF_CLEAR_KEY)||0)}catch(_e){cleared=0}
-  const recent=roleScopedComms().filter(c=>Number(c.id||0)>cleared).slice().reverse().slice(0,10);
+  const recent=sortCommsNewest(roleScopedComms()).filter(c=>Number(c.id||0)>cleared).slice(0,10);
   panel.innerHTML='<div class="nh" style="display:flex;align-items:center;justify-content:space-between">Notifications <button class="btn btn-sm btn-o" style="padding:4px 8px" onclick="clearNotifications()">Clear</button></div>' + (recent.length
     ? recent.map(c=>`<div class="ni"><strong>${c.type}</strong> · ${c.who}<div style="font-size:.74rem;color:var(--text-muted)">${c.when} · ${c.by||'System'}</div></div>`).join('')
     : '<div class="ni" style="color:var(--text-muted)">No recent notifications.</div>');
@@ -3299,7 +3330,7 @@ function updateReportsAnalytics(){
   const chTotals={whatsapp:0,email:0,phone:0,visit:0,pdf:0};
   const digMap={};
   comms.forEach(c=>{
-    const d=new Date(c.when||'');
+    const d=new Date(c.happenedAtIso||c.when||'');
     const m=Number.isNaN(d.getTime())?null:d.getMonth();
     const k=parseType(c.type);
     if(chTotals[k]!==undefined)chTotals[k]++;
