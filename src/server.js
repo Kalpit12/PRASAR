@@ -183,6 +183,18 @@ const invitationEmailLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(express.json({ limit: "12mb" }));
+const schemaReady = db.init().catch((err) => {
+  console.error("Failed to initialize database schema:", err.message);
+  throw err;
+});
+app.use(async (_req, _res, next) => {
+  try {
+    await schemaReady;
+    next();
+  } catch {
+    next(new Error("Database unavailable"));
+  }
+});
 app.use("/api", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
@@ -1257,14 +1269,14 @@ app.use((err, _req, res, _next) => {
   return res.status(500).json({ error: "Internal server error." });
 });
 
-db
-  .init()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`PRASAR server running at port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("Failed to initialize database schema:", err.message);
-    process.exit(1);
-  });
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  schemaReady
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`PRASAR server running at port ${PORT}`);
+      });
+    })
+    .catch(() => process.exit(1));
+}
