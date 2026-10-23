@@ -12,6 +12,8 @@ const bcrypt = require("bcryptjs");
 const db = require("./db");
 const postmark = require("./postmark");
 const invitationRender = require("./invitationRender");
+const leads = require("./leads");
+const { clearAllGuestData } = require("./clear-guests");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -191,6 +193,63 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+function signSession(userId) {
+  const exp = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  const body = Buffer.from(JSON.stringify({ uid: Number(userId), exp })).toString("base64url");
+  const sig = crypto.createHmac("sha256", API_KEY).update(body).digest("base64url");
+  return `${body}.${sig}`;
+}
+
+function readSessionUserId(req) {
+  const raw = String(req.headers.cookie || "");
+  const match = raw.match(/(?:^|;\s*)prasar_session=([^;]+)/);
+  if (!match) return null;
+  const token = decodeURIComponent(match[1]);
+  const dot = token.lastIndexOf(".");
+  if (dot <= 0) return null;
+  const body = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expected = crypto.createHmac("sha256", API_KEY).update(body).digest("base64url");
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (!payload || !payload.uid || !payload.exp || Date.now() > Number(payload.exp)) return null;
+    return Number(payload.uid);
+  } catch {
+    return null;
+  }
+}
+
+function setSessionCookie(res, userId) {
+  const secure = isProduction ? "; Secure" : "";
+  res.append("Set-Cookie", `prasar_session=${signSession(userId)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800${secure}`);
+}
+
+function clearSessionCookie(res) {
+  const secure = isProduction ? "; Secure" : "";
+  res.append("Set-Cookie", `prasar_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`);
+}
+
+async function actingKaryakar(req) {
+  const id = readSessionUserId(req);
+  if (!id) return null;
+  const result = await db.query("SELECT id, full_name, role, status FROM users WHERE id = $1", [id]);
+  const user = result.rows[0];
+  if (!user || String(user.role || "").toUpperCase() !== "KARYAKAR" || user.status === "INACTIVE") return null;
+  return user;
+}
+
+function volunteerSeesGuest(row, actor) {
+  return leads.leadMatchesVolunteer(
+    row.karyakar_name,
+    actor.full_name,
+    row.karyakar_name_secondary,
+    row.karyakar_name_tertiary
+  );
+}
+
 const karyakarLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.PRASAR_KARYAKAR_LOGIN_MAX_PER_15M || 40),
@@ -257,6 +316,7 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
     if (!match) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
+    setSessionCookie(res, row.id);
     return res.json({
       user: {
         id: row.id,
@@ -271,6 +331,60 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
   } catch {
     return res.status(500).json({ error: "Login failed." });
   }
+});
+
+app.post("/api/auth/admin-login", karyakarLoginLimiter, async (req, res) => {
+  const raw =
+    (typeof req.body?.identifier === "string" && req.body.identifier) ||
+    (typeof req.body?.email === "string" && req.body.email) ||
+    (typeof req.body?.login === "string" && req.body.login) ||
+    "";
+  const identifier = normalizeLoginIdentifier(raw);
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  if (!identifier || !password) return badRequest(res, "identifier and password are required.");
+
+  try {
+    let result;
+    if (isEmail(identifier)) {
+      result = await db.query(
+        `SELECT id, full_name, email, role, status, password_hash
+         FROM users
+         WHERE UPPER(TRIM(role)) = 'ADMIN' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
+         LIMIT 1`,
+        [identifier]
+      );
+    } else {
+      const nameKey = identifier.toLowerCase().replace(/\s+/g, " ");
+      result = await db.query(
+        `SELECT id, full_name, email, role, status, password_hash
+         FROM users
+         WHERE UPPER(TRIM(role)) = 'ADMIN'
+           AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
+         LIMIT 1`,
+        [nameKey]
+      );
+    }
+    const row = result.rows[0];
+    if (!row) return res.status(401).json({ error: "Invalid email or password." });
+    if (row.status === "INACTIVE") {
+      return res.status(403).json({ error: "This account is inactive." });
+    }
+    const ph = String(row.password_hash || "").trim();
+    if (!ph) return res.status(401).json({ error: "No password set for this admin account." });
+    const match = verifyStoredPassword(password, ph);
+    if (!match) return res.status(401).json({ error: "Invalid email or password." });
+    setSessionCookie(res, row.id);
+    return res.json({
+      user: { id: row.id, fullName: row.full_name, email: row.email, role: "ADMIN", status: row.status },
+    });
+  } catch {
+    return res.status(500).json({ error: "Login failed." });
+  }
+});
+
+app.post("/api/auth/logout", (_req, res) => {
+  clearSessionCookie(res);
+  return res.json({ ok: true });
 });
 
 app.use("/api", requireApiKey);
@@ -490,14 +604,17 @@ app.patch("/api/users/:id", async (req, res) => {
 });
 
 // Dignitaries
-app.get("/api/dignitaries", async (_req, res) => {
+app.get("/api/dignitaries", async (req, res) => {
   try {
     const result = await db.query(
       `SELECT id, full_name, email, designation, organization, phone, category, karyakar_name,
-              salutation, post_nominals, dietary, interest_tags, protocol_notes, created_at
+              karyakar_name_secondary, karyakar_name_tertiary,
+              salutation, post_nominals, dietary, interest_tags, protocol_notes, guest_list_no, created_at
        FROM dignitaries ORDER BY id DESC`
     );
-    return res.json(result.rows);
+    const actor = await actingKaryakar(req);
+    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
+    return res.json(rows);
   } catch {
     return res.status(500).json({ error: "Failed to load dignitaries." });
   }
@@ -563,18 +680,30 @@ app.post("/api/dignitaries/import", async (req, res) => {
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
   if (!rows) return badRequest(res, "rows[] is required.");
   if (rows.length > 5000) return badRequest(res, "Too many rows. Max 5000 per import.");
+  const replaceExisting = req.body?.replaceExisting === true;
 
   const stats = {
     total: rows.length,
     added: 0,
+    updated: 0,
     skipped: 0,
     invalid: 0,
     duplicate: 0,
     generatedEmail: 0,
     generatedName: 0,
     failed: 0,
+    volunteersCreated: 0,
+    volunteersMatched: 0,
+    cleared: 0,
   };
 
+  await db.query("ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS guest_list_no TEXT");
+  if (replaceExisting) {
+    await clearAllGuestData(db);
+    stats.cleared = 1;
+  }
+
+  const cleaned = [];
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i] || {};
     let fullName = cleanText(raw.fullName || "", 120);
@@ -584,12 +713,16 @@ app.post("/api/dignitaries/import", async (req, res) => {
     const phone = cleanText(raw.phone || raw.whatsapp || "", 40);
     let category = cleanText(raw.category || "", 40);
     if (!category) category = "Government";
-    const karyakarName = cleanText(raw.karyakarName || raw.karyakar || "", 120);
+    const karyakarName = cleanText(
+      raw.karyakarName || raw.karyakar || raw.bapsAppointedLead || raw["BAPS APPOINTED LEAD"] || "",
+      200
+    );
     const salutation = cleanText(raw.salutation || raw.title || "", 40);
     const postNominals = cleanText(raw.postNominals || raw.postnominals || raw.credentials || "", 120);
     const dietary = cleanText(raw.dietary || "", 80);
     const interestTags = cleanText(raw.interestTags || raw.tags || raw.interests || "", 500);
     const protocolNotes = cleanText(raw.protocolNotes || raw.notes || "", 2000);
+    const guestListNo = cleanText(raw.guestListNo || raw.listNo || raw.no || "", 20);
 
     // Skip totally blank rows (prevents creating fake "Imported Dignitary N" records)
     if (!fullName && !designation && !organization && !rawEmail) {
@@ -603,38 +736,78 @@ app.post("/api/dignitaries/import", async (req, res) => {
 
     let email = rawEmail;
     if (!looksLikeEmail(email)) {
-      const base = slugText(fullName) || `imported.${Date.now()}.${i + 1}`;
-      email = `${base}@import.prasar.local`;
+      const base = slugText(`${fullName}.${organization}.${phone}.${karyakarName}`) || `imported.${i + 1}`;
+      const fingerprint = crypto.createHash("sha1").update(`${fullName}|${organization}|${phone}|${karyakarName}|${protocolNotes}`).digest("hex").slice(0, 6);
+      email = `${base}.${fingerprint}@import.prasar.local`;
       stats.generatedEmail++;
     }
 
+    cleaned.push({
+      fullName,
+      email,
+      designation,
+      organization,
+      phone,
+      category,
+      karyakarName,
+      salutation,
+      postNominals,
+      dietary,
+      interestTags,
+      protocolNotes,
+      guestListNo,
+    });
+  }
+
+  const plan = leads.planGuestImport(cleaned);
+  const volunteerPassword = await ensureVolunteerAccounts(plan.volunteers, stats);
+
+  for (const guest of plan.guests) {
     let inserted = false;
     for (let attempt = 0; attempt < 5; attempt++) {
-      const tryEmail = attempt === 0 ? email : `${email.split("@")[0]}+${attempt}@${email.split("@")[1] || "import.prasar.local"}`;
+      const tryEmail =
+        attempt === 0
+          ? guest.email
+          : `${guest.email.split("@")[0]}+${attempt}@${guest.email.split("@")[1] || "import.prasar.local"}`;
       try {
         const result = await db.query(
           `INSERT INTO dignitaries (
              full_name, email, designation, organization, phone, category, karyakar_name,
-             salutation, post_nominals, dietary, interest_tags, protocol_notes
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-           ON CONFLICT (email) DO NOTHING RETURNING id`,
+             karyakar_name_secondary, karyakar_name_tertiary,
+             salutation, post_nominals, dietary, interest_tags, protocol_notes, guest_list_no
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+           ON CONFLICT (email) DO UPDATE SET
+             full_name = EXCLUDED.full_name,
+             karyakar_name = EXCLUDED.karyakar_name,
+             karyakar_name_secondary = EXCLUDED.karyakar_name_secondary,
+             karyakar_name_tertiary = EXCLUDED.karyakar_name_tertiary,
+             designation = CASE WHEN EXCLUDED.designation <> '' THEN EXCLUDED.designation ELSE dignitaries.designation END,
+             organization = CASE WHEN EXCLUDED.organization <> '' THEN EXCLUDED.organization ELSE dignitaries.organization END,
+             phone = COALESCE(EXCLUDED.phone, dignitaries.phone),
+             protocol_notes = CASE WHEN EXCLUDED.protocol_notes <> '' THEN EXCLUDED.protocol_notes ELSE dignitaries.protocol_notes END,
+             guest_list_no = COALESCE(EXCLUDED.guest_list_no, dignitaries.guest_list_no)
+           RETURNING id, (xmax = 0) AS inserted`,
           [
-            fullName,
+            guest.fullName,
             tryEmail,
-            designation,
-            organization,
-            phone || null,
-            category,
-            karyakarName || null,
-            salutation || null,
-            postNominals || null,
-            dietary || null,
-            interestTags || null,
-            protocolNotes || null,
+            guest.designation,
+            guest.organization,
+            guest.phone || null,
+            guest.category,
+            guest.karyakarName || null,
+            guest.karyakarNameSecondary || null,
+            guest.karyakarNameTertiary || null,
+            guest.salutation,
+            guest.postNominals,
+            guest.dietary,
+            guest.interestTags,
+            guest.protocolNotes,
+            guest.guestListNo || null,
           ]
         );
         if (result.rows[0]) {
-          stats.added++;
+          if (result.rows[0].inserted) stats.added++;
+          else stats.updated++;
           inserted = true;
           break;
         }
@@ -649,8 +822,78 @@ app.post("/api/dignitaries/import", async (req, res) => {
     }
   }
 
-  return res.json({ ok: true, stats });
+  return res.json({ ok: true, stats, volunteerPassword });
 });
+
+async function ensureVolunteerAccounts(volunteers, stats) {
+  const existing = await db.query(
+    "SELECT id, full_name, email FROM users WHERE UPPER(TRIM(role)) = 'KARYAKAR'"
+  );
+  const byKey = new Map();
+  for (const user of existing.rows) {
+    const key = leads.personKey(user.full_name);
+    const prev = byKey.get(key);
+    const prevIsSheet = prev && String(prev.email || "").endsWith("@volunteer.prasar.local");
+    const userIsSheet = String(user.email || "").endsWith("@volunteer.prasar.local");
+    const prevIsSlash = prev && String(prev.full_name).includes("/");
+    const userIsSlash = String(user.full_name).includes("/");
+    if (!prev || (prevIsSlash && !userIsSlash) || (prevIsSheet && !userIsSheet && !userIsSlash)) {
+      byKey.set(key, user);
+    }
+  }
+
+  let created = 0;
+  let password = null;
+  const keptIds = [];
+  for (const volunteer of volunteers) {
+    const found = byKey.get(volunteer.key);
+    if (found) {
+      const nextEmail = String(found.email || "").endsWith("@volunteer.prasar.local") ? volunteer.email : found.email;
+      if (found.full_name !== volunteer.fullName || found.email !== nextEmail) {
+        await db.query("UPDATE users SET full_name = $1, email = $2 WHERE id = $3", [
+          volunteer.fullName,
+          nextEmail,
+          found.id,
+        ]);
+      }
+      keptIds.push(found.id);
+      stats.volunteersMatched++;
+      continue;
+    }
+    if (!password) {
+      password = String(process.env.PRASAR_VOLUNTEER_INITIAL_PASSWORD || "").trim() || crypto.randomBytes(9).toString("base64url");
+    }
+    const inserted = await db.query(
+      `INSERT INTO users (full_name, email, role, status, password_hash)
+       VALUES ($1, $2, 'KARYAKAR', 'ACTIVE', $3)
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id, full_name`,
+      [volunteer.fullName, volunteer.email, hashUserPassword(password)]
+    );
+    if (inserted.rows[0]) {
+      byKey.set(volunteer.key, inserted.rows[0]);
+      keptIds.push(inserted.rows[0].id);
+      created++;
+    } else {
+      stats.volunteersMatched++;
+    }
+  }
+  if (keptIds.length) {
+    try {
+      await db.query(
+        `DELETE FROM users
+         WHERE UPPER(TRIM(role)) = 'KARYAKAR'
+           AND email LIKE '%@volunteer.prasar.local'
+           AND NOT (id = ANY($1::bigint[]))`,
+        [keptIds]
+      );
+    } catch {
+      // Leave a referenced combined-lead account in place rather than failing the import.
+    }
+  }
+  stats.volunteersCreated = created;
+  return created ? password : null;
+}
 
 app.delete("/api/dignitaries/:id", async (req, res) => {
   const id = Number(req.params.id);
@@ -734,18 +977,21 @@ app.patch("/api/events/:id", async (req, res) => {
 });
 
 // Invitations
-app.get("/api/invitations", async (_req, res) => {
+app.get("/api/invitations", async (req, res) => {
   try {
     const result = await db.query(`
       SELECT i.id, i.custom_message, i.status, i.sent_at, i.created_at,
              d.id AS dignitary_id, d.full_name AS dignitary_name, d.email AS dignitary_email,
+             d.karyakar_name, d.karyakar_name_secondary, d.karyakar_name_tertiary,
              e.id AS event_id, e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
       ORDER BY i.id DESC
     `);
-    return res.json(result.rows);
+    const actor = await actingKaryakar(req);
+    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
+    return res.json(rows);
   } catch {
     return res.status(500).json({ error: "Failed to load invitations." });
   }
@@ -925,18 +1171,21 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
 });
 
 // Communications
-app.get("/api/communications", async (_req, res) => {
+app.get("/api/communications", async (req, res) => {
   try {
     const result = await db.query(`
       SELECT c.id, c.dignitary_id, c.type, c.notes, c.happened_at, c.created_at,
-             d.full_name AS dignitary_name,
+             d.full_name AS dignitary_name, d.karyakar_name,
+             d.karyakar_name_secondary, d.karyakar_name_tertiary,
              u.full_name AS user_name
       FROM communications c
       JOIN dignitaries d ON d.id = c.dignitary_id
       JOIN users u ON u.id = c.user_id
       ORDER BY c.happened_at DESC, c.id DESC
     `);
-    return res.json(result.rows);
+    const actor = await actingKaryakar(req);
+    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
+    return res.json(rows);
   } catch {
     return res.status(500).json({ error: "Failed to load communications." });
   }

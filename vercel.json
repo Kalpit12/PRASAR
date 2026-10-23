@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "installCommand": "npm install",
+  "framework": "express",
+  "rewrites": [{ "source": "/local-app/:path*", "destination": "/:path*" }]
+}

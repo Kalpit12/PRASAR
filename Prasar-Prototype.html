@@ -515,7 +515,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <input type="text" placeholder="Search name…" id="dSearch" oninput="filterDig()">
 </div>
 <div class="card"><div class="card-bd np"><div style="overflow-x:auto">
-  <table id="dTbl"><thead><tr><th>Name</th><th>Designation</th><th>Organization</th><th>Phone</th><th>Category</th><th>Karyakar</th><th>Last Contact</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dBody"></tbody></table>
+  <table id="dTbl"><thead><tr><th>No.</th><th>Name</th><th>Designation</th><th>Organization</th><th>Phone</th><th>Category</th><th>Karyakar</th><th>Last Contact</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dBody"></tbody></table>
 </div></div></div>
 </div>
 
@@ -869,7 +869,8 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 
 <div class="mo" id="m-importDig"><div class="modal"><div class="mh"><h3>Import Dignitaries (Excel)</h3><button class="mc" onclick="closeM('importDig')">✕</button></div><div class="mb">
   <div class="fg" style="margin-bottom:12px"><label>Upload XLSX / CSV *</label><input type="file" id="digImportFile" accept=".xlsx,.xls,.csv" data-req="true"></div>
-  <div class="fg" style="margin-bottom:16px"><label>Expected Columns</label><textarea readonly>Name, Email, Designation, Organization, Category, Karyakar, Status</textarea></div>
+  <div class="fg" style="margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;font-weight:500"><input type="checkbox" id="digImportReplace" checked> Replace all existing dignitaries (removes demo / old guest data first)</label></div>
+  <div class="fg" style="margin-bottom:16px"><label>Expected Columns</label><textarea readonly>No., Name, Organisation, Position, Mobile, Email, BAPS Appointed Lead, Notes</textarea></div>
   <div class="bg"><button class="btn btn-p" onclick="importDigs()">Import</button><button class="btn btn-s" onclick="closeM('importDig');openM('addDig')">+ Add Dignitary</button><button class="btn btn-o" onclick="closeM('importDig')">Close</button></div>
 </div></div></div>
 
@@ -1012,6 +1013,8 @@ function userRoleToApi(displayRole){
 function mapDigFromApi(d){
   const n=splitName(d.full_name);
   const kar=String(d.karyakar_name!=null?d.karyakar_name:'').trim();
+  const kar2=String(d.karyakar_name_secondary!=null?d.karyakar_name_secondary:'').trim();
+  const kar3=String(d.karyakar_name_tertiary!=null?d.karyakar_name_tertiary:'').trim();
   return {
     id:Number(d.id),
     dbId:Number(d.id),
@@ -1023,6 +1026,8 @@ function mapDigFromApi(d){
     org:d.organization||'',
     cat:d.category||'Government',
     k:kar||'Unassigned',
+    k2:kar2,
+    k3:kar3,
     lc:'—',
     st:'Active',
     email:d.email||'',
@@ -1030,6 +1035,7 @@ function mapDigFromApi(d){
     dietary:d.dietary||'',
     interestTags:d.interest_tags||'',
     protocolNotes:d.protocol_notes||'',
+    listNo:d.guest_list_no||'',
     createdAt:d.created_at||''
   };
 }
@@ -1154,7 +1160,7 @@ function updateLoginUserLabel(){
   const r=document.getElementById('loginRole')?.value;
   const lbl=document.getElementById('loginUserLbl');
   if(!lbl)return;
-  lbl.textContent=r==='karyakar'?'Email or full name':'Username';
+  lbl.textContent=r==='karyakar'?'Email or full name':'Admin email';
 }
 document.getElementById('loginRole').addEventListener('change',()=>{updateLoginUserLabel();fillRememberedForSelectedRole();});
 updateLoginUserLabel();
@@ -2037,10 +2043,17 @@ function updateDigCounts(){
 function aboutSkipKey(){
   return `${ABOUT_SKIP_KEY}:${role||'unknown'}`;
 }
+function compactLead(s){
+  return String(s||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+}
 function assignedToActor(d){
-  const a=String(actorName||'').trim().toLowerCase();
-  const k=String(d?.k||'').trim().toLowerCase();
-  return !!a && !!k && a===k;
+  const a=compactLead(String(actorName||'').replace(/\([^)]*\)/g,' '));
+  if(!a)return false;
+  const names=[d?.k,d?.k2,d?.k3];
+  return names.some(name=>String(name||'').split('/').some(part=>{
+    const k=compactLead(part.replace(/\([^)]*\)/g,' '));
+    return k && k!=='tbc' && k!=='unassigned' && k===a;
+  }));
 }
 function roleScopedDigs(){
   if(role==='admin')return DIG;
@@ -2054,7 +2067,12 @@ function dignitarySortKey(d){
     .trim();
 }
 function sortDigsAZ(list){
-  return [...(list||[])].sort((a,b)=>dignitarySortKey(a).localeCompare(dignitarySortKey(b),undefined,{sensitivity:'base'}));
+  return [...(list||[])].sort((a,b)=>{
+    const na=Number(String(a?.listNo||'').replace(/[^\d]/g,''));
+    const nb=Number(String(b?.listNo||'').replace(/[^\d]/g,''));
+    if(Number.isFinite(na)&&Number.isFinite(nb)&&na>0&&nb>0&&na!==nb)return na-nb;
+    return dignitarySortKey(a).localeCompare(dignitarySortKey(b),undefined,{sensitivity:'base'});
+  });
 }
 function roleScopedComms(){
   if(role==='admin')return COMMS;
@@ -2228,6 +2246,7 @@ function importDigs(){
     const category=CT[cat]?cat:'Government';
     return {
     id:Date.now()+Math.floor(Math.random()*100000),
+    listNo:val(r,['no','number','listno','guestno','sno','srno']),
     pre:val(r,['salutation','prefix']),
     fn:parts[0]||'',
     ln:parts.slice(1).join(' ')||'',
@@ -2235,7 +2254,7 @@ function importDigs(){
     des:val(r,['designation','role','jobtitle','position']),
     org:val(r,['organization','organisation','company','institution']),
     cat:category,
-    k:val(r,['karyakar','owner','assignedto'])||'Unassigned',
+    k:val(r,['bapsappointedlead','karyakar','karyakarname','owner','assignedto','volunteer','appointedlead'])||'Unassigned',
     lc:'—',
     st:val(r,['status'])||'Active',
     dietary:val(r,['dietary','diet','meal']),
@@ -2258,18 +2277,22 @@ function importDigs(){
       postNominals:String(x?.pn||'').trim(),
       dietary:String(x?.dietary||'').trim(),
       interestTags:String(x?.interestTags||'').trim(),
-      protocolNotes:String(x?.protocolNotes||'').trim()
+      protocolNotes:String(x?.protocolNotes||'').trim(),
+      guestListNo:String(x?.listNo||'').trim()
     }));
+    const replaceExisting=!!document.getElementById('digImportReplace')?.checked;
+    if(replaceExisting&&!confirm('Replace ALL existing dignitaries with this file? Invitations and communication logs tied to guests will be removed.'))return;
     const result=await apiRequest('/api/dignitaries/import',{
       method:'POST',
-      body:JSON.stringify({rows:parsed})
+      body:JSON.stringify({rows:parsed,replaceExisting})
     });
     await syncBackendData();
     renderDig();
     refreshInviteSelectors();
     closeM('importDig');
     const s=result?.stats||{};
-    toast(`${s.added||0}/${s.total||rows.length} imported${s.skipped?`, ${s.skipped} skipped`:''}${s.duplicate?`, ${s.duplicate} duplicate`:''}${s.generatedEmail?`, ${s.generatedEmail} email auto-generated`:''}${s.generatedName?`, ${s.generatedName} name auto-generated`:''}${s.failed?`, ${s.failed} failed`:''}`,'ts');
+    const volunteerNote=s.volunteersCreated?` ${s.volunteersCreated} volunteer accounts created.`:'';
+    toast(`${s.added||0}/${s.total||rows.length} imported${s.updated?`, ${s.updated} updated`:''}${s.skipped?`, ${s.skipped} skipped`:''}${volunteerNote}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
@@ -2767,32 +2790,47 @@ async function doLogin(){
   const persist=document.getElementById('rememberMe').checked;
 
   if(role==='admin'){
-    if(!(u==='admin'&&p==='admin123')){
+    const ident=u.trim();
+    if(!ident||!p){
       shakeLogin();
-      toast('Invalid admin credentials.');
+      toast('Enter admin email and password.');
       return;
     }
-    actorName='Admin User';
-    if(persist)saveLoginRemember(role,u,p);else clearLoginRemember();
-    saveAuthState({loggedIn:true,role,user:actorName},persist);
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('appShell').classList.add('active');
     try{
-      await syncBackendData();
-    }catch(e){
-      toast(`Backend sync failed: ${e.message||'unknown error'}`);
-      clearAuthState();
-      document.getElementById('loginScreen').classList.remove('hidden');
-      document.getElementById('appShell').classList.remove('active');
+      const r=await fetch('/api/auth/admin-login',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({identifier:ident,password:p})
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(data.error||'Login failed');
+      actorName=data.user.fullName||data.user.email||'Administrator';
+      role='admin';
+      if(persist)saveLoginRemember('admin',ident,p);else clearLoginRemember();
+      saveAuthState({loggedIn:true,role,user:actorName},persist);
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appShell').classList.add('active');
+      try{
+        await syncBackendData();
+      }catch(e){
+        toast(`Backend sync failed: ${e.message||'unknown error'}`);
+        clearAuthState();
+        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('appShell').classList.remove('active');
+        return;
+      }
+      applyRoleUI();
+      enhanceUI();
+      initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+      applyPdfTemplate();
+      updPDF();
+      postLoginLanding();
+      return;
+    }catch(err){
+      shakeLogin();
+      toast(err.message||'Invalid admin credentials.');
       return;
     }
-    applyRoleUI();
-    enhanceUI();
-    initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
-    applyPdfTemplate();
-    updPDF();
-    postLoginLanding();
-    return;
   }
 
   if(role==='karyakar'){
@@ -2868,7 +2906,7 @@ async function doLogin(){
     postLoginLanding();
   }
 }
-function doLogout(){clearAuthState();document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('appShell').classList.remove('active');restoreLoginRemember()}
+function doLogout(){fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});clearAuthState();document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('appShell').classList.remove('active');restoreLoginRemember()}
 
 // NAV
 function nav(p){
@@ -2898,6 +2936,7 @@ function renderDig(list){
   const waSvg=`<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.5 3.5A11.5 11.5 0 0 0 2.7 17.6L2 22l4.6-1.2A11.5 11.5 0 0 0 20.5 3.5Zm-8.9 18a9.5 9.5 0 0 1-4.8-1.3l-.3-.2-2.8.8.7-2.7-.2-.3a9.5 9.5 0 1 1 7.4 3.7Zm5.5-7.1c-.3-.1-1.7-.8-2-1s-.5-.1-.7.2-.8 1-1 1.2-.4.2-.7.1a7.8 7.8 0 0 1-2.3-1.4 8.6 8.6 0 0 1-1.6-2c-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.4 0-.5s-.7-1.7-1-2.3c-.3-.6-.6-.5-.7-.5h-.6c-.2 0-.5.1-.7.3s-1 1-1 2.5 1 3 1.2 3.2 2 3.2 4.9 4.5c.7.3 1.3.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 2-1.3.2-.6.2-1.2.2-1.3s-.2-.2-.5-.3Z"/></svg>`;
   const base=role==='admin'?DIG:roleScopedDigs();
   const d=sortDigsAZ(list||base);document.getElementById('dBody').innerHTML=d.map(x=>{const u=waUrl(x);const ph=(x.wa||'').trim();return `<tr>
+    <td style="font-size:.82rem;color:var(--text-muted)">${x.listNo?escapeHtml(String(x.listNo)):'—'}</td>
     <td><strong>${x.pre} ${x.fn} ${x.ln}</strong>${x.pn?` <span style="color:var(--text-muted);font-size:.78rem">${x.pn}</span>`:''}</td>
     <td style="font-size:.82rem">${x.des}</td><td style="font-size:.82rem">${x.org}</td>
     <td style="font-size:.82rem">${ph?escapeHtml(ph):'—'}</td>
@@ -2954,6 +2993,7 @@ function fillViewDigPanel(d){
     ['Dietary',d.dietary?escapeHtml(d.dietary):dash],
     ['Primary Karyakar',d.k&&d.k!=='Unassigned'?escapeHtml(d.k):dash],
     ['Interest tags',d.interestTags?escapeHtml(d.interestTags):dash],
+    ['List number',d.listNo?escapeHtml(String(d.listNo)):dash],
     ['Protocol notes',d.protocolNotes?`<div class="dig-multiline">${escapeHtml(d.protocolNotes)}</div>`:dash],
     ['Last contact',d.lc&&d.lc!=='—'?escapeHtml(d.lc):dash],
     ['Status',d.st?escapeHtml(d.st):dash],

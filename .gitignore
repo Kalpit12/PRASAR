@@ -4,6 +4,10 @@ data/*.db-*
 data/outbox/
 data/backups/
 data/runtime-secrets.json
+data/volunteer-logins.pdf
+data/volunteer-logins.json
+data/volunteer-logins*.pdf
+data/volunteer-logins*.json
 .env
 
 # logs / diagnostics
