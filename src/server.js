@@ -28,22 +28,32 @@ if (fs.existsSync(secretsFile)) {
     fileSecrets = {};
   }
 }
+const onVercel = Boolean(process.env.VERCEL);
 if (!fileSecrets.PRASAR_API_KEY || !fileSecrets.PRASAR_BACKUP_KEY) {
-  const generated = {
-    PRASAR_API_KEY: crypto.randomBytes(48).toString("base64url"),
-    PRASAR_BACKUP_KEY: crypto.randomBytes(48).toString("base64url"),
-    created_at: new Date().toISOString(),
-  };
-  fileSecrets = generated;
-  fs.writeFileSync(secretsFile, JSON.stringify(generated, null, 2));
+  if (process.env.PRASAR_API_KEY && process.env.PRASAR_BACKUP_KEY) {
+    fileSecrets = {
+      PRASAR_API_KEY: process.env.PRASAR_API_KEY,
+      PRASAR_BACKUP_KEY: process.env.PRASAR_BACKUP_KEY,
+    };
+  } else if (!onVercel) {
+    const generated = {
+      PRASAR_API_KEY: crypto.randomBytes(48).toString("base64url"),
+      PRASAR_BACKUP_KEY: crypto.randomBytes(48).toString("base64url"),
+      created_at: new Date().toISOString(),
+    };
+    fileSecrets = generated;
+    fs.writeFileSync(secretsFile, JSON.stringify(generated, null, 2));
+  }
 }
 const API_KEY = process.env.PRASAR_API_KEY || fileSecrets.PRASAR_API_KEY || "";
 const BACKUP_KEY = process.env.PRASAR_BACKUP_KEY || fileSecrets.PRASAR_BACKUP_KEY || "";
 if (!API_KEY) {
   console.error("FATAL: PRASAR_API_KEY is missing. Set PRASAR_API_KEY or ensure data/runtime-secrets.json is writable.");
-  process.exit(1);
+  if (!onVercel) process.exit(1);
 }
-const allowedOrigins = new Set(["http://localhost:3000", "http://127.0.0.1:3000"]);
+const allowedOrigins = new Set(["http://localhost:3000", "http://127.0.0.1:3000", "https://prasar.vercel.app"]);
+if (process.env.VERCEL_URL) allowedOrigins.add(`https://${process.env.VERCEL_URL}`);
+if (process.env.VERCEL_BRANCH_URL) allowedOrigins.add(`https://${process.env.VERCEL_BRANCH_URL}`);
 if (process.env.RENDER_EXTERNAL_URL) allowedOrigins.add(process.env.RENDER_EXTERNAL_URL);
 if (process.env.ALLOWED_ORIGINS) {
   for (const o of process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)) {
@@ -56,7 +66,7 @@ const trustSameOriginWithoutKey = process.env.PRASAR_TRUST_SAME_ORIGIN_WITHOUT_K
 /** Optional: require this header on POST /api/system/backup (in addition to normal API access). */
 const backupHttpToken = String(process.env.PRASAR_BACKUP_HTTP_TOKEN || "").trim();
 
-if (process.env.TRUST_PROXY === "1" || process.env.RENDER === "true" || isProduction) {
+if (process.env.TRUST_PROXY === "1" || process.env.RENDER === "true" || isProduction || onVercel) {
   app.set("trust proxy", 1);
 }
 
@@ -1248,15 +1258,17 @@ app.post("/api/system/backup", async (req, res) => {
   }
 });
 
-setInterval(() => {
-  createEncryptedBackup()
-    .then((details) => {
-      if (details) console.log(`Backup created: ${path.basename(details.file)}`);
-    })
-    .catch(() => {
-      console.error("Scheduled backup failed.");
-    });
-}, 6 * 60 * 60 * 1000);
+if (!onVercel) {
+  setInterval(() => {
+    createEncryptedBackup()
+      .then((details) => {
+        if (details) console.log(`Backup created: ${path.basename(details.file)}`);
+      })
+      .catch(() => {
+        console.error("Scheduled backup failed.");
+      });
+  }, 6 * 60 * 60 * 1000);
+}
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Not found." });
@@ -1269,9 +1281,8 @@ app.use((err, _req, res, _next) => {
   return res.status(500).json({ error: "Internal server error." });
 });
 
-if (process.env.VERCEL) {
-  module.exports = app;
-} else {
+module.exports = app;
+if (!onVercel) {
   schemaReady
     .then(() => {
       app.listen(PORT, () => {
