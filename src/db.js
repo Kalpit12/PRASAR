@@ -3,20 +3,23 @@ require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const { Pool } = require("pg");
 
-if (!process.env.DATABASE_URL) {
-  if (process.env.VERCEL) {
-    console.error("DATABASE_URL is not configured on Vercel.");
+let pool;
+
+function getPool() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required for Postgres connection.");
   }
-  throw new Error("DATABASE_URL is required for Postgres connection.");
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+  }
+  return pool;
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
-
 async function init() {
-  await pool.query(`
+  await getPool().query(`
     CREATE TABLE IF NOT EXISTS users (
       id BIGSERIAL PRIMARY KEY,
       full_name TEXT NOT NULL,
@@ -96,6 +99,6 @@ async function init() {
 }
 
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query: (text, params) => getPool().query(text, params),
   init,
 };

@@ -197,6 +197,20 @@ const schemaReady = db.init().catch((err) => {
   console.error("Failed to initialize database schema:", err.message);
   throw err;
 });
+
+// Public health check (no DB middleware — used by uptime monitors)
+app.get("/api/health", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ ok: false, error: "DATABASE_URL is not configured." });
+  }
+  try {
+    await schemaReady;
+    return res.json({ ok: true });
+  } catch {
+    return res.status(503).json({ ok: false, error: "Database unavailable." });
+  }
+});
+
 app.use(async (_req, _res, next) => {
   try {
     await schemaReady;
@@ -208,11 +222,6 @@ app.use(async (_req, _res, next) => {
 app.use("/api", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
-});
-
-// Public health check (Render will call this without auth headers)
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
 });
 
 function signSession(userId) {
