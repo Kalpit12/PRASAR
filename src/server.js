@@ -1210,6 +1210,60 @@ app.post("/api/communications", async (req, res) => {
   }
 });
 
+/** Prototype modules (donations, QR attendance, etc.) — empty payloads until persisted in Postgres. */
+app.get("/api/lookups", (_req, res) => {
+  return res.json({
+    dignitaryCategories: ["Government", "Corporate", "Academic", "Religious", "NGO"],
+    communicationTypes: ["PHONE_CALL", "WHATSAPP", "EMAIL", "VISIT", "PDF_SENT", "GIFT"],
+    userRoles: ["ADMIN", "KARYAKAR"],
+    userStatuses: ["ACTIVE", "INACTIVE"],
+  });
+});
+
+app.get("/api/donations", (_req, res) => res.json([]));
+
+app.get("/api/notifications", async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT c.id, c.type, c.notes, c.happened_at, c.created_at,
+             d.full_name AS dignitary_name,
+             d.karyakar_name, d.karyakar_name_secondary, d.karyakar_name_tertiary,
+             u.full_name AS user_name
+      FROM communications c
+      JOIN dignitaries d ON d.id = c.dignitary_id
+      JOIN users u ON u.id = c.user_id
+      ORDER BY c.happened_at DESC, c.id DESC
+      LIMIT 25
+    `);
+    const actor = await actingKaryakar(req);
+    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
+    return res.json(
+      rows.map((row) => ({
+        id: row.id,
+        type: row.type,
+        who: row.dignitary_name,
+        note: row.notes,
+        when: row.happened_at || row.created_at,
+        by: row.user_name,
+      }))
+    );
+  } catch {
+    return res.json([]);
+  }
+});
+
+app.get("/api/events/:id/volunteer-attendance", (req, res) => {
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
+  return res.json({ eventId, records: [] });
+});
+
+app.get("/api/events/:id/invitation-template", (req, res) => {
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
+  return res.json({ eventId, template: null });
+});
+
 app.post("/api/system/backup", async (req, res) => {
   if (backupHttpToken) {
     const t = String(req.header("x-prasar-backup-token") || "").trim();
