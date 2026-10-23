@@ -7,5 +7,10 @@
       "maxDuration": 60
     }
   },
-  "rewrites": [{ "source": "/local-app/:path*", "destination": "/:path*" }]
+  "headers": [
+    {
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }]
+    }
+  ]
 }

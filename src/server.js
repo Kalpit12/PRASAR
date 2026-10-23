@@ -383,9 +383,23 @@ app.post("/api/auth/logout", (_req, res) => {
 });
 
 app.use("/api", requireApiKey);
-app.use("/local-app", express.static(path.join(__dirname, "..", "public")));
+
+const publicDir = path.join(__dirname, "..", "public");
+function redirectToMainApp(_req, res) {
+  res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
+  return res.redirect(302, "/");
+}
+app.get(["/local-app", "/local-app/", "/local-app/index.html", "/index.html"], redirectToMainApp);
+app.use(
+  "/local-app",
+  express.static(publicDir, {
+    index: false,
+    fallthrough: true,
+  })
+);
 app.get("/favicon.ico", (_req, res) => res.status(204).end());
 app.get("/", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
   res.sendFile(prototypeFile);
 });
 
