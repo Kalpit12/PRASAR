@@ -47,14 +47,11 @@ async function init() {
       phone TEXT,
       category TEXT DEFAULT 'Government',
       karyakar_name TEXT,
-      karyakar_name_secondary TEXT,
-      karyakar_name_tertiary TEXT,
       salutation TEXT,
       post_nominals TEXT,
       dietary TEXT,
       interest_tags TEXT,
       protocol_notes TEXT,
-      guest_list_no TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -83,28 +80,15 @@ async function init() {
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Government';
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS karyakar_name TEXT;
-    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS karyakar_name_secondary TEXT;
-    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS karyakar_name_tertiary TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS salutation TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS post_nominals TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS dietary TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS interest_tags TEXT;
     ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS protocol_notes TEXT;
-    ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS guest_list_no TEXT;
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_area TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
-    ALTER TABLE events ADD COLUMN IF NOT EXISTS invitation_template_json TEXT;
-
-    CREATE TABLE IF NOT EXISTS volunteer_attendance (
-      id BIGSERIAL PRIMARY KEY,
-      event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      status TEXT NOT NULL DEFAULT 'PRESENT' CHECK (status IN ('PRESENT', 'ABSENT')),
-      checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(event_id, user_id)
-    );
   `);
 }
 

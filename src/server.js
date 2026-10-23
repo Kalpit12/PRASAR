@@ -12,8 +12,6 @@ const bcrypt = require("bcryptjs");
 const db = require("./db");
 const postmark = require("./postmark");
 const invitationRender = require("./invitationRender");
-const leads = require("./leads");
-const { clearAllGuestData } = require("./clear-guests");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -84,6 +82,11 @@ if (process.env.TRUST_PROXY === "1" || process.env.RENDER === "true" || isProduc
 
 const backupDir = path.join(dataRoot, "backups");
 safeMkdir(backupDir);
+
+const schemaReady = db.init().catch((err) => {
+  console.error("Failed to initialize database schema:", err.message);
+  throw err;
+});
 
 console.log("PRASAR API key source:", process.env.PRASAR_API_KEY ? "env" : "data/runtime-secrets.json");
 if (API_KEY) console.log("PRASAR API key: loaded (length " + API_KEY.length + ", not logged)");
@@ -205,16 +208,13 @@ const invitationEmailLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(express.json({ limit: "12mb" }));
-const schemaReady = db.init().catch((err) => {
-  console.error("Failed to initialize database schema:", err.message);
-  throw err;
+app.use("/api", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
 });
 
-// Public health check (no DB middleware — used by uptime monitors)
+// Public health check (Render will call this without auth headers)
 app.get("/api/health", async (_req, res) => {
-  if (!process.env.DATABASE_URL) {
-    return res.status(503).json({ ok: false, error: "DATABASE_URL is not configured." });
-  }
   try {
     await schemaReady;
     return res.json({ ok: true });
@@ -231,67 +231,6 @@ app.use(async (_req, _res, next) => {
     next(new Error("Database unavailable"));
   }
 });
-app.use("/api", (req, res, next) => {
-  res.setHeader("Cache-Control", "no-store");
-  next();
-});
-
-function signSession(userId) {
-  const exp = Date.now() + 7 * 24 * 60 * 60 * 1000;
-  const body = Buffer.from(JSON.stringify({ uid: Number(userId), exp })).toString("base64url");
-  const sig = crypto.createHmac("sha256", API_KEY).update(body).digest("base64url");
-  return `${body}.${sig}`;
-}
-
-function readSessionUserId(req) {
-  const raw = String(req.headers.cookie || "");
-  const match = raw.match(/(?:^|;\s*)prasar_session=([^;]+)/);
-  if (!match) return null;
-  const token = decodeURIComponent(match[1]);
-  const dot = token.lastIndexOf(".");
-  if (dot <= 0) return null;
-  const body = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  const expected = crypto.createHmac("sha256", API_KEY).update(body).digest("base64url");
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-    if (!payload || !payload.uid || !payload.exp || Date.now() > Number(payload.exp)) return null;
-    return Number(payload.uid);
-  } catch {
-    return null;
-  }
-}
-
-function setSessionCookie(res, userId) {
-  const secure = isProduction ? "; Secure" : "";
-  res.append("Set-Cookie", `prasar_session=${signSession(userId)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800${secure}`);
-}
-
-function clearSessionCookie(res) {
-  const secure = isProduction ? "; Secure" : "";
-  res.append("Set-Cookie", `prasar_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`);
-}
-
-async function actingKaryakar(req) {
-  const id = readSessionUserId(req);
-  if (!id) return null;
-  const result = await db.query("SELECT id, full_name, role, status FROM users WHERE id = $1", [id]);
-  const user = result.rows[0];
-  if (!user || String(user.role || "").toUpperCase() !== "KARYAKAR" || user.status === "INACTIVE") return null;
-  return user;
-}
-
-function volunteerSeesGuest(row, actor) {
-  return leads.leadMatchesVolunteer(
-    row.karyakar_name,
-    actor.full_name,
-    row.karyakar_name_secondary,
-    row.karyakar_name_tertiary
-  );
-}
 
 const karyakarLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -301,7 +240,7 @@ const karyakarLoginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-async function loginWithRole(req, res, roleFilter) {
+app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
   const raw =
     (typeof req.body?.identifier === "string" && req.body.identifier) ||
     (typeof req.body?.email === "string" && req.body.email) ||
@@ -315,71 +254,64 @@ async function loginWithRole(req, res, roleFilter) {
     let result;
     if (isEmail(identifier)) {
       result = await db.query(
-        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
+        `SELECT id, full_name, email, "role", status, assigned_area, phone, password_hash
          FROM users
-         WHERE UPPER(TRIM(role)) = $1 AND LOWER(TRIM(email)) = LOWER(TRIM($2))
+         WHERE UPPER(TRIM("role")) = 'KARYAKAR' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
          LIMIT 1`,
-        [roleFilter, identifier]
+        [identifier]
       );
     } else {
       const nameKey = identifier.toLowerCase().replace(/\s+/g, " ");
       result = await db.query(
-        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
+        `SELECT id, full_name, email, "role", status, assigned_area, phone, password_hash
          FROM users
-         WHERE UPPER(TRIM(role)) = $1
-           AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $2
+         WHERE UPPER(TRIM("role")) = 'KARYAKAR'
+           AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
          LIMIT 1`,
-        [roleFilter, nameKey]
+        [nameKey]
       );
     }
     const row = result.rows[0];
-    if (!row) return res.status(401).json({ error: "Invalid email or password." });
+    if (!row || String(row.role || "").trim().toUpperCase() !== "KARYAKAR") {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
     if (row.status === "INACTIVE") {
       return res.status(403).json({ error: "This account is inactive. Contact an administrator." });
     }
     const phRaw = row.password_hash;
     if (phRaw == null || String(phRaw).trim() === "") {
       return res.status(401).json({
-        error: "No login password is saved for this account yet.",
+        error:
+          "No login password is saved for this account yet. An admin must open User Management → Edit this user, set “New login password”, and Save.",
         code: "PASSWORD_NOT_SET",
       });
     }
-    const match = verifyStoredPassword(password, String(phRaw).trim());
-    if (match === null || !match) {
+    const ph = String(phRaw).trim();
+    const match = verifyStoredPassword(password, ph);
+    if (match === null) {
+      return res.status(401).json({
+        error:
+          "The saved password uses an unsupported format. An admin must set the password again in User Management → Edit (PRASAR uses a secure hash in the app).",
+        code: "PASSWORD_UNSUPPORTED_FORMAT",
+      });
+    }
+    if (!match) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
-    setSessionCookie(res, row.id);
-    const apiRole = String(row.role || "").trim().toUpperCase();
     return res.json({
       user: {
         id: row.id,
         fullName: row.full_name,
         email: row.email,
-        role: apiRole,
+        role: "KARYAKAR",
         assignedArea: row.assigned_area || "",
         phone: row.phone || "",
         status: row.status,
       },
     });
-  } catch (err) {
-    console.error("Login failed:", err.message);
+  } catch {
     return res.status(500).json({ error: "Login failed." });
   }
-}
-
-app.post("/api/auth/login", karyakarLoginLimiter, async (req, res) => {
-  const roleRaw = String(req.body?.role || req.body?.loginRole || "").trim().toUpperCase();
-  const roleFilter = roleRaw === "ADMIN" || roleRaw === "ADMINISTRATOR" ? "ADMIN" : "KARYAKAR";
-  return loginWithRole(req, res, roleFilter);
-});
-
-app.post("/api/auth/karyakar-login", karyakarLoginLimiter, (req, res) => loginWithRole(req, res, "KARYAKAR"));
-
-app.post("/api/auth/admin-login", karyakarLoginLimiter, (req, res) => loginWithRole(req, res, "ADMIN"));
-
-app.post("/api/auth/logout", (_req, res) => {
-  clearSessionCookie(res);
-  return res.json({ ok: true });
 });
 
 app.use("/api", requireApiKey);
@@ -613,17 +545,14 @@ app.patch("/api/users/:id", async (req, res) => {
 });
 
 // Dignitaries
-app.get("/api/dignitaries", async (req, res) => {
+app.get("/api/dignitaries", async (_req, res) => {
   try {
     const result = await db.query(
       `SELECT id, full_name, email, designation, organization, phone, category, karyakar_name,
-              karyakar_name_secondary, karyakar_name_tertiary,
-              salutation, post_nominals, dietary, interest_tags, protocol_notes, guest_list_no, created_at
+              salutation, post_nominals, dietary, interest_tags, protocol_notes, created_at
        FROM dignitaries ORDER BY id DESC`
     );
-    const actor = await actingKaryakar(req);
-    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
-    return res.json(rows);
+    return res.json(result.rows);
   } catch {
     return res.status(500).json({ error: "Failed to load dignitaries." });
   }
@@ -689,30 +618,18 @@ app.post("/api/dignitaries/import", async (req, res) => {
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
   if (!rows) return badRequest(res, "rows[] is required.");
   if (rows.length > 5000) return badRequest(res, "Too many rows. Max 5000 per import.");
-  const replaceExisting = req.body?.replaceExisting === true;
 
   const stats = {
     total: rows.length,
     added: 0,
-    updated: 0,
     skipped: 0,
     invalid: 0,
     duplicate: 0,
     generatedEmail: 0,
     generatedName: 0,
     failed: 0,
-    volunteersCreated: 0,
-    volunteersMatched: 0,
-    cleared: 0,
   };
 
-  await db.query("ALTER TABLE dignitaries ADD COLUMN IF NOT EXISTS guest_list_no TEXT");
-  if (replaceExisting) {
-    await clearAllGuestData(db);
-    stats.cleared = 1;
-  }
-
-  const cleaned = [];
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i] || {};
     let fullName = cleanText(raw.fullName || "", 120);
@@ -722,16 +639,12 @@ app.post("/api/dignitaries/import", async (req, res) => {
     const phone = cleanText(raw.phone || raw.whatsapp || "", 40);
     let category = cleanText(raw.category || "", 40);
     if (!category) category = "Government";
-    const karyakarName = cleanText(
-      raw.karyakarName || raw.karyakar || raw.bapsAppointedLead || raw["BAPS APPOINTED LEAD"] || "",
-      200
-    );
+    const karyakarName = cleanText(raw.karyakarName || raw.karyakar || "", 120);
     const salutation = cleanText(raw.salutation || raw.title || "", 40);
     const postNominals = cleanText(raw.postNominals || raw.postnominals || raw.credentials || "", 120);
     const dietary = cleanText(raw.dietary || "", 80);
     const interestTags = cleanText(raw.interestTags || raw.tags || raw.interests || "", 500);
     const protocolNotes = cleanText(raw.protocolNotes || raw.notes || "", 2000);
-    const guestListNo = cleanText(raw.guestListNo || raw.listNo || raw.no || "", 20);
 
     // Skip totally blank rows (prevents creating fake "Imported Dignitary N" records)
     if (!fullName && !designation && !organization && !rawEmail) {
@@ -745,78 +658,38 @@ app.post("/api/dignitaries/import", async (req, res) => {
 
     let email = rawEmail;
     if (!looksLikeEmail(email)) {
-      const base = slugText(`${fullName}.${organization}.${phone}.${karyakarName}`) || `imported.${i + 1}`;
-      const fingerprint = crypto.createHash("sha1").update(`${fullName}|${organization}|${phone}|${karyakarName}|${protocolNotes}`).digest("hex").slice(0, 6);
-      email = `${base}.${fingerprint}@import.prasar.local`;
+      const base = slugText(fullName) || `imported.${Date.now()}.${i + 1}`;
+      email = `${base}@import.prasar.local`;
       stats.generatedEmail++;
     }
 
-    cleaned.push({
-      fullName,
-      email,
-      designation,
-      organization,
-      phone,
-      category,
-      karyakarName,
-      salutation,
-      postNominals,
-      dietary,
-      interestTags,
-      protocolNotes,
-      guestListNo,
-    });
-  }
-
-  const plan = leads.planGuestImport(cleaned);
-  const volunteerPassword = await ensureVolunteerAccounts(plan.volunteers, stats);
-
-  for (const guest of plan.guests) {
     let inserted = false;
     for (let attempt = 0; attempt < 5; attempt++) {
-      const tryEmail =
-        attempt === 0
-          ? guest.email
-          : `${guest.email.split("@")[0]}+${attempt}@${guest.email.split("@")[1] || "import.prasar.local"}`;
+      const tryEmail = attempt === 0 ? email : `${email.split("@")[0]}+${attempt}@${email.split("@")[1] || "import.prasar.local"}`;
       try {
         const result = await db.query(
           `INSERT INTO dignitaries (
              full_name, email, designation, organization, phone, category, karyakar_name,
-             karyakar_name_secondary, karyakar_name_tertiary,
-             salutation, post_nominals, dietary, interest_tags, protocol_notes, guest_list_no
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-           ON CONFLICT (email) DO UPDATE SET
-             full_name = EXCLUDED.full_name,
-             karyakar_name = EXCLUDED.karyakar_name,
-             karyakar_name_secondary = EXCLUDED.karyakar_name_secondary,
-             karyakar_name_tertiary = EXCLUDED.karyakar_name_tertiary,
-             designation = CASE WHEN EXCLUDED.designation <> '' THEN EXCLUDED.designation ELSE dignitaries.designation END,
-             organization = CASE WHEN EXCLUDED.organization <> '' THEN EXCLUDED.organization ELSE dignitaries.organization END,
-             phone = COALESCE(EXCLUDED.phone, dignitaries.phone),
-             protocol_notes = CASE WHEN EXCLUDED.protocol_notes <> '' THEN EXCLUDED.protocol_notes ELSE dignitaries.protocol_notes END,
-             guest_list_no = COALESCE(EXCLUDED.guest_list_no, dignitaries.guest_list_no)
-           RETURNING id, (xmax = 0) AS inserted`,
+             salutation, post_nominals, dietary, interest_tags, protocol_notes
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           ON CONFLICT (email) DO NOTHING RETURNING id`,
           [
-            guest.fullName,
+            fullName,
             tryEmail,
-            guest.designation,
-            guest.organization,
-            guest.phone || null,
-            guest.category,
-            guest.karyakarName || null,
-            guest.karyakarNameSecondary || null,
-            guest.karyakarNameTertiary || null,
-            guest.salutation,
-            guest.postNominals,
-            guest.dietary,
-            guest.interestTags,
-            guest.protocolNotes,
-            guest.guestListNo || null,
+            designation,
+            organization,
+            phone || null,
+            category,
+            karyakarName || null,
+            salutation || null,
+            postNominals || null,
+            dietary || null,
+            interestTags || null,
+            protocolNotes || null,
           ]
         );
         if (result.rows[0]) {
-          if (result.rows[0].inserted) stats.added++;
-          else stats.updated++;
+          stats.added++;
           inserted = true;
           break;
         }
@@ -831,78 +704,8 @@ app.post("/api/dignitaries/import", async (req, res) => {
     }
   }
 
-  return res.json({ ok: true, stats, volunteerPassword });
+  return res.json({ ok: true, stats });
 });
-
-async function ensureVolunteerAccounts(volunteers, stats) {
-  const existing = await db.query(
-    "SELECT id, full_name, email FROM users WHERE UPPER(TRIM(role)) = 'KARYAKAR'"
-  );
-  const byKey = new Map();
-  for (const user of existing.rows) {
-    const key = leads.personKey(user.full_name);
-    const prev = byKey.get(key);
-    const prevIsSheet = prev && String(prev.email || "").endsWith("@volunteer.prasar.local");
-    const userIsSheet = String(user.email || "").endsWith("@volunteer.prasar.local");
-    const prevIsSlash = prev && String(prev.full_name).includes("/");
-    const userIsSlash = String(user.full_name).includes("/");
-    if (!prev || (prevIsSlash && !userIsSlash) || (prevIsSheet && !userIsSheet && !userIsSlash)) {
-      byKey.set(key, user);
-    }
-  }
-
-  let created = 0;
-  let password = null;
-  const keptIds = [];
-  for (const volunteer of volunteers) {
-    const found = byKey.get(volunteer.key);
-    if (found) {
-      const nextEmail = String(found.email || "").endsWith("@volunteer.prasar.local") ? volunteer.email : found.email;
-      if (found.full_name !== volunteer.fullName || found.email !== nextEmail) {
-        await db.query("UPDATE users SET full_name = $1, email = $2 WHERE id = $3", [
-          volunteer.fullName,
-          nextEmail,
-          found.id,
-        ]);
-      }
-      keptIds.push(found.id);
-      stats.volunteersMatched++;
-      continue;
-    }
-    if (!password) {
-      password = String(process.env.PRASAR_VOLUNTEER_INITIAL_PASSWORD || "").trim() || crypto.randomBytes(9).toString("base64url");
-    }
-    const inserted = await db.query(
-      `INSERT INTO users (full_name, email, role, status, password_hash)
-       VALUES ($1, $2, 'KARYAKAR', 'ACTIVE', $3)
-       ON CONFLICT (email) DO NOTHING
-       RETURNING id, full_name`,
-      [volunteer.fullName, volunteer.email, hashUserPassword(password)]
-    );
-    if (inserted.rows[0]) {
-      byKey.set(volunteer.key, inserted.rows[0]);
-      keptIds.push(inserted.rows[0].id);
-      created++;
-    } else {
-      stats.volunteersMatched++;
-    }
-  }
-  if (keptIds.length) {
-    try {
-      await db.query(
-        `DELETE FROM users
-         WHERE UPPER(TRIM(role)) = 'KARYAKAR'
-           AND email LIKE '%@volunteer.prasar.local'
-           AND NOT (id = ANY($1::bigint[]))`,
-        [keptIds]
-      );
-    } catch {
-      // Leave a referenced combined-lead account in place rather than failing the import.
-    }
-  }
-  stats.volunteersCreated = created;
-  return created ? password : null;
-}
 
 app.delete("/api/dignitaries/:id", async (req, res) => {
   const id = Number(req.params.id);
@@ -986,21 +789,18 @@ app.patch("/api/events/:id", async (req, res) => {
 });
 
 // Invitations
-app.get("/api/invitations", async (req, res) => {
+app.get("/api/invitations", async (_req, res) => {
   try {
     const result = await db.query(`
       SELECT i.id, i.custom_message, i.status, i.sent_at, i.created_at,
              d.id AS dignitary_id, d.full_name AS dignitary_name, d.email AS dignitary_email,
-             d.karyakar_name, d.karyakar_name_secondary, d.karyakar_name_tertiary,
              e.id AS event_id, e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
       JOIN dignitaries d ON d.id = i.dignitary_id
       JOIN events e ON e.id = i.event_id
       ORDER BY i.id DESC
     `);
-    const actor = await actingKaryakar(req);
-    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
-    return res.json(rows);
+    return res.json(result.rows);
   } catch {
     return res.status(500).json({ error: "Failed to load invitations." });
   }
@@ -1180,21 +980,18 @@ app.post("/api/invitations/:id/send-email", invitationEmailLimiter, async (req, 
 });
 
 // Communications
-app.get("/api/communications", async (req, res) => {
+app.get("/api/communications", async (_req, res) => {
   try {
     const result = await db.query(`
       SELECT c.id, c.dignitary_id, c.type, c.notes, c.happened_at, c.created_at,
-             d.full_name AS dignitary_name, d.karyakar_name,
-             d.karyakar_name_secondary, d.karyakar_name_tertiary,
+             d.full_name AS dignitary_name,
              u.full_name AS user_name
       FROM communications c
       JOIN dignitaries d ON d.id = c.dignitary_id
       JOIN users u ON u.id = c.user_id
       ORDER BY c.happened_at DESC, c.id DESC
     `);
-    const actor = await actingKaryakar(req);
-    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
-    return res.json(rows);
+    return res.json(result.rows);
   } catch {
     return res.status(500).json({ error: "Failed to load communications." });
   }
@@ -1221,170 +1018,6 @@ app.post("/api/communications", async (req, res) => {
     return res.status(201).json(result.rows[0]);
   } catch {
     return res.status(500).json({ error: "Failed to create communication." });
-  }
-});
-
-/** Prototype modules (donations, QR attendance, etc.) — empty payloads until persisted in Postgres. */
-app.get("/api/lookups", (_req, res) => {
-  return res.json({
-    dignitaryCategories: ["Government", "Corporate", "Academic", "Religious", "NGO"],
-    communicationTypes: ["PHONE_CALL", "WHATSAPP", "EMAIL", "VISIT", "PDF_SENT", "GIFT"],
-    userRoles: ["ADMIN", "KARYAKAR"],
-    userStatuses: ["ACTIVE", "INACTIVE"],
-  });
-});
-
-app.get("/api/donations", (_req, res) => res.json([]));
-
-app.get("/api/notifications", async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT c.id, c.type, c.notes, c.happened_at, c.created_at,
-             d.full_name AS dignitary_name,
-             d.karyakar_name, d.karyakar_name_secondary, d.karyakar_name_tertiary,
-             u.full_name AS user_name
-      FROM communications c
-      JOIN dignitaries d ON d.id = c.dignitary_id
-      JOIN users u ON u.id = c.user_id
-      ORDER BY c.happened_at DESC, c.id DESC
-      LIMIT 25
-    `);
-    const actor = await actingKaryakar(req);
-    const rows = actor ? result.rows.filter((row) => volunteerSeesGuest(row, actor)) : result.rows;
-    return res.json(
-      rows.map((row) => ({
-        id: row.id,
-        type: row.type,
-        who: row.dignitary_name,
-        note: row.notes,
-        when: row.happened_at || row.created_at,
-        by: row.user_name,
-      }))
-    );
-  } catch {
-    return res.json([]);
-  }
-});
-
-app.get("/api/events/:id/volunteer-attendance", async (req, res) => {
-  const eventId = Number(req.params.id);
-  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
-  try {
-    const event = await db.query("SELECT id FROM events WHERE id = $1", [eventId]);
-    if (!event.rows[0]) return res.status(404).json({ error: "Event not found." });
-    const result = await db.query(
-      `
-      SELECT u.id AS user_id, u.full_name, u.role, u.status AS user_status,
-             va.status, va.checked_in_at
-      FROM users u
-      LEFT JOIN volunteer_attendance va ON va.user_id = u.id AND va.event_id = $1
-      WHERE UPPER(TRIM(u.role)) = 'KARYAKAR' AND u.status = 'ACTIVE'
-      ORDER BY u.full_name ASC
-    `,
-      [eventId]
-    );
-    const records = result.rows.map((row) => ({
-      userId: row.user_id,
-      fullName: row.full_name,
-      role: row.role,
-      status: row.status === "PRESENT" ? "PRESENT" : row.status === "ABSENT" ? "ABSENT" : "NOT_MARKED",
-      checkedInAt: row.checked_in_at || null,
-    }));
-    const present = records.filter((r) => r.status === "PRESENT").length;
-    return res.json({
-      eventId,
-      summary: { total: records.length, present, absent: records.filter((r) => r.status === "ABSENT").length },
-      records,
-    });
-  } catch {
-    return res.status(500).json({ error: "Failed to load volunteer attendance." });
-  }
-});
-
-app.post("/api/events/:id/volunteer-attendance", async (req, res) => {
-  const eventId = Number(req.params.id);
-  const userId = Number(req.body?.userId);
-  const statusRaw = String(req.body?.status || "PRESENT").trim().toUpperCase();
-  const status = statusRaw === "ABSENT" ? "ABSENT" : "PRESENT";
-  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
-  if (!Number.isFinite(userId) || userId <= 0) return badRequest(res, "userId is required.");
-  try {
-    const sessionId = readSessionUserId(req);
-    let actor = null;
-    if (sessionId) {
-      const actorRow = await db.query("SELECT id, role, status FROM users WHERE id = $1", [sessionId]);
-      actor = actorRow.rows[0] || null;
-    }
-    const isAdmin = actor && String(actor.role || "").toUpperCase() === "ADMIN" && actor.status === "ACTIVE";
-    const isSelf = actor && Number(actor.id) === userId;
-    if (!isAdmin && !isSelf) {
-      return res.status(403).json({ error: "Only admins or the volunteer can update attendance." });
-    }
-    const event = await db.query("SELECT id FROM events WHERE id = $1", [eventId]);
-    if (!event.rows[0]) return res.status(404).json({ error: "Event not found." });
-    const user = await db.query(
-      "SELECT id FROM users WHERE id = $1 AND UPPER(TRIM(role)) = 'KARYAKAR' AND status = 'ACTIVE'",
-      [userId]
-    );
-    if (!user.rows[0]) return badRequest(res, "Invalid karyakar user.");
-    const result = await db.query(
-      `
-      INSERT INTO volunteer_attendance (event_id, user_id, status, checked_in_at)
-      VALUES ($1, $2, $3, NOW())
-      ON CONFLICT (event_id, user_id)
-      DO UPDATE SET status = EXCLUDED.status, checked_in_at = NOW()
-      RETURNING *
-    `,
-      [eventId, userId, status]
-    );
-    return res.json({ ok: true, record: result.rows[0] });
-  } catch {
-    return res.status(500).json({ error: "Failed to save volunteer attendance." });
-  }
-});
-
-app.get("/api/events/:id/invitation-template", async (req, res) => {
-  const eventId = Number(req.params.id);
-  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
-  try {
-    const result = await db.query(
-      "SELECT id, invitation_template_json FROM events WHERE id = $1",
-      [eventId]
-    );
-    const row = result.rows[0];
-    if (!row) return res.status(404).json({ error: "Event not found." });
-    let template = null;
-    if (row.invitation_template_json) {
-      try {
-        template = JSON.parse(row.invitation_template_json);
-      } catch {
-        template = null;
-      }
-    }
-    return res.json({ eventId, template });
-  } catch {
-    return res.status(500).json({ error: "Failed to load invitation template." });
-  }
-});
-
-app.put("/api/events/:id/invitation-template", async (req, res) => {
-  const eventId = Number(req.params.id);
-  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
-  const template = req.body?.template;
-  if (template == null || typeof template !== "object") {
-    return badRequest(res, "template object is required.");
-  }
-  try {
-    const payload = JSON.stringify(template);
-    if (payload.length > 500000) return badRequest(res, "Template too large.");
-    const result = await db.query(
-      "UPDATE events SET invitation_template_json = $2 WHERE id = $1 RETURNING id",
-      [eventId, payload]
-    );
-    if (!result.rows[0]) return res.status(404).json({ error: "Event not found." });
-    return res.json({ ok: true, eventId });
-  } catch {
-    return res.status(500).json({ error: "Failed to save invitation template." });
   }
 });
 
@@ -1440,5 +1073,8 @@ if (!onVercel) {
         console.log(`PRASAR server running at port ${PORT}`);
       });
     })
-    .catch(() => process.exit(1));
+    .catch((err) => {
+      console.error("Failed to initialize database schema:", err.message);
+      process.exit(1);
+    });
 }

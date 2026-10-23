@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PRASAR – Digital Outreach with a Devotional Heart</title>
-<meta name="prasar-ui-build" content="2026-03-24-volunteer-dashboard">
+<meta name="prasar-ui-build" content="24752fe-pre-guest-import">
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -413,7 +413,6 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <div class="nav-item" data-page="invitations"><span class="ic">✉️</span> Invitations</div>
   <div class="nav-sec">Engagement</div>
   <div class="nav-item" data-page="communications"><span class="ic">💬</span> Communications</div>
-  <div class="nav-item" data-page="volunteer-roll"><span class="ic">🙏</span> Volunteer Attendance</div>
   <div class="nav-item" data-page="attendance"><span class="ic">📱</span> QR Attendance</div>
   <div class="nav-item" data-page="hospitality"><span class="ic">🍽️</span> Hospitality</div>
   <div class="nav-sec">Analytics</div>
@@ -456,18 +455,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <div class="stat-card"><div class="acc" style="background:var(--navy)"></div><div class="ibg" style="background:var(--info-light);color:var(--info)">👤</div><div class="val">—</div><div class="lbl">Total Dignitaries</div><span class="chg up">No data</span></div>
   <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="ibg" style="background:var(--success-light);color:var(--success)">📅</div><div class="val">—</div><div class="lbl">Active Events</div><span class="chg up">No data</span></div>
   <div class="stat-card"><div class="acc" style="background:var(--saffron)"></div><div class="ibg" style="background:var(--saffron-light);color:var(--saffron)">✉️</div><div class="val">—</div><div class="lbl">Invitations Sent</div><span class="chg up">No data</span></div>
-  <div class="stat-card"><div class="acc" style="background:var(--gold)"></div><div class="ibg" style="background:var(--gold-light);color:var(--gold)">🎁</div><div class="val" id="statContributionsVal">—</div><div class="lbl">Contributions</div><span class="chg up" id="statContributionsChg">No data</span></div>
-  <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="ibg" style="background:var(--success-light);color:var(--success)">🙏</div><div class="val" id="statVolunteerPresentVal">—</div><div class="lbl">Volunteers Present</div><span class="chg up" id="statVolunteerPresentChg">Select event</span></div>
-</div>
-<div class="card mb28" id="dashVolunteerCard">
-  <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-    <h3>Volunteer attendance</h3>
-    <div class="bg">
-      <select id="dashVolEvent" class="btn btn-o btn-sm" style="padding:8px 14px" onchange="renderDashVolunteer()"></select>
-      <button type="button" class="btn btn-sm btn-o" onclick="nav('volunteer-roll')">Open roll call</button>
-    </div>
-  </div>
-  <div class="card-bd np"><div style="overflow-x:auto"><table><thead><tr><th>Volunteer</th><th>Status</th><th>Checked in</th><th></th></tr></thead><tbody id="dashVolunteerBody"><tr><td colspan="4" style="font-size:.85rem;color:var(--text-muted);padding:16px">No event selected.</td></tr></tbody></table></div></div>
+  <div class="stat-card"><div class="acc" style="background:var(--gold)"></div><div class="ibg" style="background:var(--gold-light);color:var(--gold)">🎁</div><div class="val">—</div><div class="lbl">Contributions</div><span class="chg up">No data</span></div>
 </div>
 <div class="g2 mb28">
   <div class="card"><div class="card-hd"><h3>Attendance Trend</h3><button class="btn btn-sm btn-o" onclick="openM('attFilter')">Last 6 Events</button></div><div class="card-bd"><div class="cc"><canvas id="cAtt"></canvas></div></div></div>
@@ -528,7 +516,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   <input type="text" placeholder="Search name…" id="dSearch" oninput="filterDig()">
 </div>
 <div class="card"><div class="card-bd np"><div style="overflow-x:auto">
-  <table id="dTbl"><thead><tr><th>No.</th><th>Name</th><th>Designation</th><th>Organization</th><th>Phone</th><th>Category</th><th>Karyakar</th><th>Last Contact</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dBody"></tbody></table>
+  <table id="dTbl"><thead><tr><th>Name</th><th>Designation</th><th>Organization</th><th>Phone</th><th>Category</th><th>Karyakar</th><th>Last Contact</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dBody"></tbody></table>
 </div></div></div>
 </div>
 
@@ -552,7 +540,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2>Invitation Generator</h2><button class="btn btn-o btn-sm" onclick="openM('bulkInv')">📋 Bulk Generate</button></div>
 <div class="g2">
 <div><div class="card mb20"><div class="card-hd"><h3>Configure Invitation</h3></div><div class="card-bd">
-  <div class="fg" style="margin-bottom:14px"><label>Select Event</label><select id="invE" onchange="onInvEventChange()"><option value="">No sample events configured</option></select></div>
+  <div class="fg" style="margin-bottom:14px"><label>Select Event</label><select id="invE" onchange="updPDF()"><option value="">No sample events configured</option></select></div>
   <div class="fg" style="margin-bottom:14px"><label>Select Dignitary</label><select id="invD" onchange="updPDF()"><option value="">No sample dignitaries configured</option></select></div>
   <div class="fg" style="margin-bottom:14px"><label>Custom Message</label><textarea id="invCustomMsg" placeholder="Add a personal note…"></textarea></div>
   <div class="bg"><button class="btn btn-p" onclick="generateInvitationPdf()">🖨️ Generate PDF</button><button class="btn btn-w" onclick="toast('WhatsApp opened!','ts')">💬 WhatsApp</button><button class="btn btn-o" onclick="openSendEmailModal()">📧 Email</button><button class="btn btn-o" onclick="openBulkSendEmailModal()">📧 Bulk email</button></div>
@@ -641,20 +629,6 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
   </div>
   <div class="tl" id="comTimeline" style="display:none"></div>
 </div></div>
-</div>
-
-<!-- ══ VOLUNTEER ATTENDANCE (PR Karyakar) ══ -->
-<div class="page" id="page-volunteer-roll">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
-  <div><h2>Volunteer Attendance</h2><p style="font-size:.85rem;color:var(--text-muted);margin-top:4px">PR Karyakar roll call by event (separate from guest QR check-in).</p></div>
-  <select id="volRollEvent" class="btn btn-o btn-sm" style="padding:8px 14px" onchange="renderVolunteerRoll()"></select>
-</div>
-<div class="stats-grid mb28" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-  <div class="stat-card"><div class="acc" style="background:var(--navy)"></div><div class="val" id="volRollTotal">—</div><div class="lbl">Active volunteers</div></div>
-  <div class="stat-card"><div class="acc" style="background:var(--success)"></div><div class="val" id="volRollPresent">—</div><div class="lbl">Present</div></div>
-  <div class="stat-card"><div class="acc" style="background:var(--danger)"></div><div class="val" id="volRollAbsent">—</div><div class="lbl">Absent</div></div>
-</div>
-<div class="card"><div class="card-hd"><h3>Roll call</h3></div><div class="card-bd np"><div style="overflow-x:auto"><table><thead><tr><th>Volunteer</th><th>Status</th><th>Checked in</th><th>Actions</th></tr></thead><tbody id="volRollBody"><tr><td colspan="4" style="padding:16px;color:var(--text-muted)">Select an event.</td></tr></tbody></table></div></div></div>
 </div>
 
 <!-- ══ QR ATTENDANCE ══ -->
@@ -896,8 +870,7 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 
 <div class="mo" id="m-importDig"><div class="modal"><div class="mh"><h3>Import Dignitaries (Excel)</h3><button class="mc" onclick="closeM('importDig')">✕</button></div><div class="mb">
   <div class="fg" style="margin-bottom:12px"><label>Upload XLSX / CSV *</label><input type="file" id="digImportFile" accept=".xlsx,.xls,.csv" data-req="true"></div>
-  <div class="fg" style="margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;font-weight:500"><input type="checkbox" id="digImportReplace" checked> Replace all existing dignitaries (removes demo / old guest data first)</label></div>
-  <div class="fg" style="margin-bottom:16px"><label>Expected Columns</label><textarea readonly>No., Name, Organisation, Position, Mobile, Email, BAPS Appointed Lead, Notes</textarea></div>
+  <div class="fg" style="margin-bottom:16px"><label>Expected Columns</label><textarea readonly>Name, Email, Designation, Organization, Category, Karyakar, Status</textarea></div>
   <div class="bg"><button class="btn btn-p" onclick="importDigs()">Import</button><button class="btn btn-s" onclick="closeM('importDig');openM('addDig')">+ Add Dignitary</button><button class="btn btn-o" onclick="closeM('importDig')">Close</button></div>
 </div></div></div>
 
@@ -968,11 +941,6 @@ const DIG=[];
 const USERS=[];
 const EVTS=[];
 const COMMS=[];
-const LOOKUPS={};
-const DONATIONS=[];
-let API_NOTIFICATIONS=[];
-const VOL_ATTEND={};
-let pendingVolRollEventId=null;
 const USERS_KEY='prasar_users_v1';
 const DIG_KEY='prasar_dig_v1';
 const EVTS_KEY='prasar_evts_v1';
@@ -1045,8 +1013,6 @@ function userRoleToApi(displayRole){
 function mapDigFromApi(d){
   const n=splitName(d.full_name);
   const kar=String(d.karyakar_name!=null?d.karyakar_name:'').trim();
-  const kar2=String(d.karyakar_name_secondary!=null?d.karyakar_name_secondary:'').trim();
-  const kar3=String(d.karyakar_name_tertiary!=null?d.karyakar_name_tertiary:'').trim();
   return {
     id:Number(d.id),
     dbId:Number(d.id),
@@ -1058,8 +1024,6 @@ function mapDigFromApi(d){
     org:d.organization||'',
     cat:d.category||'Government',
     k:kar||'Unassigned',
-    k2:kar2,
-    k3:kar3,
     lc:'—',
     st:'Active',
     email:d.email||'',
@@ -1067,7 +1031,6 @@ function mapDigFromApi(d){
     dietary:d.dietary||'',
     interestTags:d.interest_tags||'',
     protocolNotes:d.protocol_notes||'',
-    listNo:d.guest_list_no||'',
     createdAt:d.created_at||''
   };
 }
@@ -1139,153 +1102,17 @@ function sortCommsNewest(list){
   });
 }
 async function syncBackendData(){
-  const [users,digs,events,comms,lookups,donations,notifications]=await Promise.all([
+  const [users,digs,events,comms]=await Promise.all([
     apiRequest('/api/users'),
     apiRequest('/api/dignitaries'),
     apiRequest('/api/events'),
-    apiRequest('/api/communications'),
-    apiRequest('/api/lookups').catch(()=>({})),
-    apiRequest('/api/donations').catch(()=>[]),
-    apiRequest('/api/notifications').catch(()=>[])
+    apiRequest('/api/communications')
   ]);
   USERS.splice(0,USERS.length,...users.map(mapUserFromApi));
   DIG.splice(0,DIG.length,...digs.map(mapDigFromApi));
   EVTS.splice(0,EVTS.length,...events.map(mapEventFromApi));
   COMMS.splice(0,COMMS.length,...comms.map(mapCommFromApi));
-  Object.assign(LOOKUPS,lookups&&typeof lookups==='object'?lookups:{});
-  DONATIONS.splice(0,DONATIONS.length,...Array.isArray(donations)?donations:[]);
-  API_NOTIFICATIONS=Array.isArray(notifications)?notifications:[];
   dedupeDigs();
-  await loadAllVolunteerAttendance();
-  syncVolunteerEventSelectors();
-  renderDashVolunteer();
-}
-function primaryDashboardEventId(){
-  if(!EVTS.length)return null;
-  const withDb=EVTS.find(e=>Number(e.dbId)>0);
-  return withDb?Number(withDb.dbId):Number(EVTS[0].dbId||0)||null;
-}
-function syncVolunteerEventSelectors(){
-  const opts=EVTS.length?EVTS.map(e=>`<option value="${Number(e.dbId)}">${escapeHtml(e.name||'Event')}</option>`).join(''):'<option value="">No events</option>';
-  ['dashVolEvent','volRollEvent'].forEach(id=>{
-    const el=document.getElementById(id); if(!el)return;
-    const prev=String(el.value||'');
-    el.innerHTML=opts;
-    const pick=pendingVolRollEventId||prev||String(primaryDashboardEventId()||'');
-    if(pick&&el.querySelector(`option[value="${pick}"]`))el.value=pick;
-    else if(EVTS[0]?.dbId)el.value=String(EVTS[0].dbId);
-  });
-  pendingVolRollEventId=null;
-}
-async function loadAllVolunteerAttendance(){
-  Object.keys(VOL_ATTEND).forEach(k=>delete VOL_ATTEND[k]);
-  const ids=[...new Set(EVTS.map(e=>Number(e.dbId)).filter(n=>Number.isFinite(n)&&n>0))];
-  await Promise.all(ids.map(async(eventId)=>{
-    try{VOL_ATTEND[eventId]=await apiRequest('/api/events/'+eventId+'/volunteer-attendance');}
-    catch(_e){VOL_ATTEND[eventId]={eventId,summary:{total:0,present:0,absent:0},records:[]};}
-  }));
-}
-function fmtVolCheckIn(iso){
-  if(!iso)return '—';
-  try{return new Date(iso).toLocaleString();}catch(_e){return '—';}
-}
-function volStatusLabel(st){
-  if(st==='PRESENT')return '<span class="tag" style="background:var(--success-light);color:var(--success)">Present</span>';
-  if(st==='ABSENT')return '<span class="tag" style="background:var(--danger-light);color:var(--danger)">Absent</span>';
-  return '<span class="tag" style="background:var(--bg-soft);color:var(--text-muted)">Not marked</span>';
-}
-function renderDashVolunteer(){
-  const eventId=Number(document.getElementById('dashVolEvent')?.value||primaryDashboardEventId()||0);
-  const body=document.getElementById('dashVolunteerBody');
-  const data=eventId>0?VOL_ATTEND[eventId]:null;
-  const presentVal=document.getElementById('statVolunteerPresentVal');
-  const presentChg=document.getElementById('statVolunteerPresentChg');
-  const contribVal=document.getElementById('statContributionsVal');
-  const contribChg=document.getElementById('statContributionsChg');
-  if(contribVal)contribVal.textContent=String(DONATIONS.length||0);
-  if(contribChg)contribChg.textContent=DONATIONS.length?'Live data':'No data';
-  if(!body)return;
-  if(!data||!data.records?.length){
-    if(presentVal)presentVal.textContent='—';
-    if(presentChg)presentChg.textContent=eventId>0?'No volunteers':'No event';
-    body.innerHTML='<tr><td colspan="4" style="font-size:.85rem;color:var(--text-muted);padding:16px">No PR Karyakar accounts yet. Add them under User Management.</td></tr>';
-    return;
-  }
-  const s=data.summary||{};
-  if(presentVal)presentVal.textContent=`${s.present||0}/${s.total||0}`;
-  if(presentChg)presentChg.textContent=s.present?`${s.present} checked in`:'Mark roll call';
-  const preview=data.records.slice(0,8);
-  body.innerHTML=preview.map(r=>`<tr>
-    <td><strong>${escapeHtml(r.fullName||'')}</strong></td>
-    <td>${volStatusLabel(r.status)}</td>
-    <td style="font-size:.82rem">${fmtVolCheckIn(r.checkedInAt)}</td>
-    <td>${role==='admin'||canMarkSelfVol(r)?`<button class="btn btn-sm btn-o" onclick="setVolunteerAttendance(${eventId},${Number(r.userId)},'PRESENT')">Present</button>`:''}</td>
-  </tr>`).join('');
-}
-function canMarkSelfVol(record){
-  const me=USERS.find(u=>String(u.name||'').trim()===String(actorName||'').trim()&&u.role==='Karyakar');
-  return me&&Number(me.dbId)===Number(record.userId);
-}
-function renderVolunteerRoll(){
-  const eventId=Number(document.getElementById('volRollEvent')?.value||0);
-  const body=document.getElementById('volRollBody');
-  const data=eventId>0?VOL_ATTEND[eventId]:null;
-  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v);};
-  if(!data||!data.records?.length){
-    set('volRollTotal','—');set('volRollPresent','—');set('volRollAbsent','—');
-    if(body)body.innerHTML='<tr><td colspan="4" style="padding:16px;color:var(--text-muted)">No volunteers or event not loaded.</td></tr>';
-    return;
-  }
-  const s=data.summary||{};
-  set('volRollTotal',s.total||0);set('volRollPresent',s.present||0);set('volRollAbsent',s.absent||0);
-  body.innerHTML=data.records.map(r=>{
-    const canAdmin=role==='admin';
-    const canSelf=canMarkSelfVol(r);
-    const actions=canAdmin||canSelf
-      ? `<div class="bg nw"><button class="btn btn-sm btn-p" onclick="setVolunteerAttendance(${eventId},${Number(r.userId)},'PRESENT')">Present</button><button class="btn btn-sm btn-o" onclick="setVolunteerAttendance(${eventId},${Number(r.userId)},'ABSENT')">Absent</button></div>`
-      : '—';
-    return `<tr><td><strong>${escapeHtml(r.fullName||'')}</strong></td><td>${volStatusLabel(r.status)}</td><td style="font-size:.82rem">${fmtVolCheckIn(r.checkedInAt)}</td><td>${actions}</td></tr>`;
-  }).join('');
-}
-async function setVolunteerAttendance(eventId,userId,status){
-  try{
-    await apiRequest('/api/events/'+Number(eventId)+'/volunteer-attendance',{method:'POST',body:JSON.stringify({userId:Number(userId),status})});
-    VOL_ATTEND[Number(eventId)]=await apiRequest('/api/events/'+Number(eventId)+'/volunteer-attendance');
-    renderDashVolunteer();
-    renderVolunteerRoll();
-    toast('Attendance updated','ts');
-  }catch(e){toast(e.message||'Update failed');}
-}
-function openVolunteerRollForEvent(dbId){
-  pendingVolRollEventId=Number(dbId)||null;
-  syncVolunteerEventSelectors();
-  nav('volunteer-roll');
-}
-function openInvitationForEvent(evtIndex){
-  const i=Number(evtIndex);
-  if(!Number.isFinite(i)||!EVTS[i])return;
-  refreshInviteSelectors();
-  const invE=document.getElementById('invE');
-  if(invE)invE.value=String(i);
-  nav('invitations');
-  onInvEventChange();
-}
-function onInvEventChange(){
-  updPDF();
-  loadEventInvitationTemplateFromApi();
-}
-async function loadEventInvitationTemplateFromApi(){
-  const idx=Number(document.getElementById('invE')?.value);
-  if(!Number.isFinite(idx)||idx<0||!EVTS[idx])return;
-  const dbId=Number(EVTS[idx].dbId);
-  if(!dbId)return;
-  try{
-    const data=await apiRequest('/api/events/'+dbId+'/invitation-template');
-    if(data.template&&data.template.items){
-      localStorage.setItem(PDF_TPL_KEY,JSON.stringify(data.template));
-      applyPdfTemplate();
-    }
-  }catch(_e){}
 }
 function readLoginRememberMap(){
   try{
@@ -1328,7 +1155,7 @@ function updateLoginUserLabel(){
   const r=document.getElementById('loginRole')?.value;
   const lbl=document.getElementById('loginUserLbl');
   if(!lbl)return;
-  lbl.textContent=r==='karyakar'?'Email or full name':'Admin email';
+  lbl.textContent=r==='karyakar'?'Email or full name':'Username';
 }
 document.getElementById('loginRole').addEventListener('change',()=>{updateLoginUserLabel();fillRememberedForSelectedRole();});
 updateLoginUserLabel();
@@ -1475,7 +1302,7 @@ function updateDashboardAnalytics(){
   setCard('Total Dignitaries',digs.length,`Live: ${digs.length}`);
   setCard('Active Events',activeEvents,activeEvents?'Live data':'No data');
   setCard('Invitations Sent',sent,sent?'Live data':'No data');
-  renderDashVolunteer();
+  setCard('Contributions',0,'No data');
 
   const cCat=Chart.getChart('cCat');
   if(cCat){
@@ -2115,14 +1942,6 @@ function savePdfTemplate(){
     tpl.extraImages.push({id:el.id,src,lx:parseFloat(el.dataset.lx)||0,ly:parseFloat(el.dataset.ly)||0,imgWidth:iw,imgHeight:ih>0?ih:''});
   });
   try{localStorage.setItem(PDF_TPL_KEY,JSON.stringify(tpl))}catch(_e){}
-  const idx=Number(document.getElementById('invE')?.value);
-  const dbId=Number.isFinite(idx)&&EVTS[idx]?Number(EVTS[idx].dbId):0;
-  if(dbId>0){
-    apiRequest('/api/events/'+dbId+'/invitation-template',{method:'PUT',body:JSON.stringify({template:tpl})})
-      .then(()=>toast('PDF template saved (browser + event)','ts'))
-      .catch(()=>toast('PDF template saved locally; server save failed','ts'));
-    return;
-  }
   toast('PDF template saved','ts');
 }
 function applyPdfTemplate(){
@@ -2219,43 +2038,24 @@ function updateDigCounts(){
 function aboutSkipKey(){
   return `${ABOUT_SKIP_KEY}:${role||'unknown'}`;
 }
-function compactLead(s){
-  return String(s||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
-}
 function assignedToActor(d){
-  const a=compactLead(String(actorName||'').replace(/\([^)]*\)/g,' '));
-  if(!a)return false;
-  const names=[d?.k,d?.k2,d?.k3];
-  return names.some(name=>String(name||'').split('/').some(part=>{
-    const k=compactLead(part.replace(/\([^)]*\)/g,' '));
-    return k && k!=='tbc' && k!=='unassigned' && k===a;
-  }));
+  const a=String(actorName||'').trim().toLowerCase();
+  const k=String(d?.k||'').trim().toLowerCase();
+  return !!a && !!k && a===k;
 }
 function roleScopedDigs(){
   if(role==='admin')return DIG;
   return DIG.filter(assignedToActor);
 }
-function dignitaryDisplayName(d){
-  return `${d?.pre||''} ${d?.fn||''} ${d?.ln||''}`.trim().replace(/\s+/g,' ');
-}
 function dignitarySortKey(d){
-  let s=dignitaryDisplayName(d).toLowerCase();
-  for(let i=0;i<10;i++){
-    const next=s
-      .replace(/^(shri|shrmt|shrimati|dr|mr|mrs|ms|prof)\.?\s+/i,'')
-      .replace(/^shri\s*&\s*shrmt\s+/i,'')
-      .replace(/^&\s+/,'')
-      .replace(/\s*&\s*family\s*$/i,'')
-      .trim();
-    if(next===s)break;
-    s=next;
-  }
-  return s;
+  const full=`${d?.pre||''} ${d?.fn||''} ${d?.ln||''}`.trim().replace(/\s+/g,' ');
+  return full
+    .toLowerCase()
+    .replace(/^(shri|dr)\.?\s+/i,'')
+    .trim();
 }
 function sortDigsAZ(list){
-  return [...(list||[])].sort((a,b)=>
-    dignitarySortKey(a).localeCompare(dignitarySortKey(b),undefined,{sensitivity:'base',numeric:true})
-  );
+  return [...(list||[])].sort((a,b)=>dignitarySortKey(a).localeCompare(dignitarySortKey(b),undefined,{sensitivity:'base'}));
 }
 function roleScopedComms(){
   if(role==='admin')return COMMS;
@@ -2351,7 +2151,7 @@ function renderEvents(){
   const empty=document.getElementById('eventsEmpty'),wrap=document.getElementById('eventsDynWrap');if(!empty||!wrap)return;
   if(!EVTS.length){empty.style.display='flex';wrap.style.display='none';wrap.innerHTML='';return;}
   empty.style.display='none';wrap.style.display='block';
-  wrap.innerHTML=EVTS.map((e,i)=>{const c=String(e.createdBy||'').trim().toLowerCase();const creator=(!c||c==='system'||c==='karyakar')?'Admin User':e.createdBy;const dbId=Number(e.dbId||0);const vol=dbId>0&&VOL_ATTEND[dbId]?VOL_ATTEND[dbId].summary:null;const volNote=vol?`<span style="font-size:.78rem;color:var(--text-muted)"> · 🙏 ${vol.present||0}/${vol.total||0} volunteers present</span>`:'';return `<div class="ec"><h4>${e.name}</h4><div class="meta"><span>📅 ${fmtDate(e.date)}</span><span>📍 ${e.venue||'—'}</span><span>🕐 ${fmtTime(e.time)}</span>${volNote}</div><div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Created by: <strong style="color:var(--text)">${creator}</strong></div>${e.desc?`<div style="margin-top:10px;font-size:.82rem;color:var(--text-light);line-height:1.5">${e.desc}</div>`:''}<div style="margin-top:12px" class="bg nw"><button class="btn btn-sm btn-p" onclick="openInvitationForEvent(${i})">Send Invites</button><button class="btn btn-sm btn-o" onclick="openVolunteerRollForEvent(${dbId})">Volunteer attendance</button><button class="btn btn-sm btn-o" onclick="openEditEvt(${i})">Edit</button></div></div>`}).join('');
+  wrap.innerHTML=EVTS.map((e,i)=>{const c=String(e.createdBy||'').trim().toLowerCase();const creator=(!c||c==='system'||c==='karyakar')?'Admin User':e.createdBy;return `<div class="ec"><h4>${e.name}</h4><div class="meta"><span>📅 ${fmtDate(e.date)}</span><span>📍 ${e.venue||'—'}</span><span>🕐 ${fmtTime(e.time)}</span></div><div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Created by: <strong style="color:var(--text)">${creator}</strong></div>${e.desc?`<div style="margin-top:10px;font-size:.82rem;color:var(--text-light);line-height:1.5">${e.desc}</div>`:''}<div style="margin-top:12px" class="bg"><button class="btn btn-sm btn-p" onclick="nav('invitations')">Send Invites</button><button class="btn btn-sm btn-o" onclick="openEditEvt(${i})">Edit</button></div></div>`}).join('');
   updateDashboardAnalytics();
 }
 function renderComms(){
@@ -2429,7 +2229,6 @@ function importDigs(){
     const category=CT[cat]?cat:'Government';
     return {
     id:Date.now()+Math.floor(Math.random()*100000),
-    listNo:val(r,['no','number','listno','guestno','sno','srno']),
     pre:val(r,['salutation','prefix']),
     fn:parts[0]||'',
     ln:parts.slice(1).join(' ')||'',
@@ -2437,7 +2236,7 @@ function importDigs(){
     des:val(r,['designation','role','jobtitle','position']),
     org:val(r,['organization','organisation','company','institution']),
     cat:category,
-    k:val(r,['bapsappointedlead','karyakar','karyakarname','owner','assignedto','volunteer','appointedlead'])||'Unassigned',
+    k:val(r,['karyakar','owner','assignedto'])||'Unassigned',
     lc:'—',
     st:val(r,['status'])||'Active',
     dietary:val(r,['dietary','diet','meal']),
@@ -2460,22 +2259,18 @@ function importDigs(){
       postNominals:String(x?.pn||'').trim(),
       dietary:String(x?.dietary||'').trim(),
       interestTags:String(x?.interestTags||'').trim(),
-      protocolNotes:String(x?.protocolNotes||'').trim(),
-      guestListNo:String(x?.listNo||'').trim()
+      protocolNotes:String(x?.protocolNotes||'').trim()
     }));
-    const replaceExisting=!!document.getElementById('digImportReplace')?.checked;
-    if(replaceExisting&&!confirm('Replace ALL existing dignitaries with this file? Invitations and communication logs tied to guests will be removed.'))return;
     const result=await apiRequest('/api/dignitaries/import',{
       method:'POST',
-      body:JSON.stringify({rows:parsed,replaceExisting})
+      body:JSON.stringify({rows:parsed})
     });
     await syncBackendData();
     renderDig();
     refreshInviteSelectors();
     closeM('importDig');
     const s=result?.stats||{};
-    const volunteerNote=s.volunteersCreated?` ${s.volunteersCreated} volunteer accounts created.`:'';
-    toast(`${s.added||0}/${s.total||rows.length} imported${s.updated?`, ${s.updated} updated`:''}${s.skipped?`, ${s.skipped} skipped`:''}${volunteerNote}`,'ts');
+    toast(`${s.added||0}/${s.total||rows.length} imported${s.skipped?`, ${s.skipped} skipped`:''}${s.duplicate?`, ${s.duplicate} duplicate`:''}${s.generatedEmail?`, ${s.generatedEmail} email auto-generated`:''}${s.generatedName?`, ${s.generatedName} name auto-generated`:''}${s.failed?`, ${s.failed} failed`:''}`,'ts');
   };
   if(f.name.toLowerCase().endsWith('.csv')){
     const reader=new FileReader();
@@ -2973,47 +2768,32 @@ async function doLogin(){
   const persist=document.getElementById('rememberMe').checked;
 
   if(role==='admin'){
-    const ident=u.trim();
-    if(!ident||!p){
+    if(!(u==='admin'&&p==='admin123')){
       shakeLogin();
-      toast('Enter admin email and password.');
+      toast('Invalid admin credentials.');
       return;
     }
+    actorName='Admin User';
+    if(persist)saveLoginRemember(role,u,p);else clearLoginRemember();
+    saveAuthState({loggedIn:true,role,user:actorName},persist);
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.add('active');
     try{
-      const r=await fetch('/api/auth/login',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({identifier:ident,email:ident,password:p,role:'ADMIN'})
-      });
-      const data=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(data.error||'Login failed');
-      actorName=data.user.fullName||data.user.email||'Administrator';
-      role='admin';
-      if(persist)saveLoginRemember('admin',ident,p);else clearLoginRemember();
-      saveAuthState({loggedIn:true,role,user:actorName},persist);
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('appShell').classList.add('active');
-      try{
-        await syncBackendData();
-      }catch(e){
-        toast(`Backend sync failed: ${e.message||'unknown error'}`);
-        clearAuthState();
-        document.getElementById('loginScreen').classList.remove('hidden');
-        document.getElementById('appShell').classList.remove('active');
-        return;
-      }
-      applyRoleUI();
-      enhanceUI();
-      initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
-      applyPdfTemplate();
-      updPDF();
-      postLoginLanding();
-      return;
-    }catch(err){
-      shakeLogin();
-      toast(err.message||'Invalid admin credentials.');
+      await syncBackendData();
+    }catch(e){
+      toast(`Backend sync failed: ${e.message||'unknown error'}`);
+      clearAuthState();
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('appShell').classList.remove('active');
       return;
     }
+    applyRoleUI();
+    enhanceUI();
+    initCharts();renderDig();renderUsers();renderEvents();renderComms();refreshInviteSelectors();
+    applyPdfTemplate();
+    updPDF();
+    postLoginLanding();
+    return;
   }
 
   if(role==='karyakar'){
@@ -3021,10 +2801,10 @@ async function doLogin(){
     const legacyDemo=ident.toLowerCase()==='karyakar'&&p==='karyakar123';
     if(!legacyDemo&&p.length){
       try{
-        const r=await fetch('/api/auth/login',{
+        const r=await fetch('/api/auth/karyakar-login',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({identifier:ident,email:ident,password:p,role:'KARYAKAR'})
+          body:JSON.stringify({identifier:ident,password:p})
         });
         const data=await r.json().catch(()=>({}));
         if(!r.ok)throw new Error(data.error||'Login failed');
@@ -3089,7 +2869,7 @@ async function doLogin(){
     postLoginLanding();
   }
 }
-function doLogout(){fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});clearAuthState();document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('appShell').classList.remove('active');restoreLoginRemember()}
+function doLogout(){clearAuthState();document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('appShell').classList.remove('active');restoreLoginRemember()}
 
 // NAV
 function nav(p){
@@ -3099,7 +2879,7 @@ function nav(p){
   const n=document.querySelector(`.nav-item[data-page="${p}"]`);if(n)n.classList.add('active');
   document.getElementById('bcPage').textContent=p.charAt(0).toUpperCase()+p.slice(1);
   requestAnimationFrame(enhanceUI);
-  if(p==='reports')setTimeout(initRC,100);if(p==='hospitality')setTimeout(initHC,100);if(p==='donations')setTimeout(initDC,100);if(p==='volunteer-roll'){syncVolunteerEventSelectors();renderVolunteerRoll();}
+  if(p==='reports')setTimeout(initRC,100);if(p==='hospitality')setTimeout(initHC,100);if(p==='donations')setTimeout(initDC,100);
   if(p==='invitations')requestAnimationFrame(()=>requestAnimationFrame(()=>repairPdfLayoutIfNeeded()));
 }
 document.querySelectorAll('.nav-item[data-page]').forEach(i=>i.addEventListener('click',()=>nav(i.dataset.page)));
@@ -3118,8 +2898,7 @@ function renderDig(list){
   dedupeDigs();
   const waSvg=`<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.5 3.5A11.5 11.5 0 0 0 2.7 17.6L2 22l4.6-1.2A11.5 11.5 0 0 0 20.5 3.5Zm-8.9 18a9.5 9.5 0 0 1-4.8-1.3l-.3-.2-2.8.8.7-2.7-.2-.3a9.5 9.5 0 1 1 7.4 3.7Zm5.5-7.1c-.3-.1-1.7-.8-2-1s-.5-.1-.7.2-.8 1-1 1.2-.4.2-.7.1a7.8 7.8 0 0 1-2.3-1.4 8.6 8.6 0 0 1-1.6-2c-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.4 0-.5s-.7-1.7-1-2.3c-.3-.6-.6-.5-.7-.5h-.6c-.2 0-.5.1-.7.3s-1 1-1 2.5 1 3 1.2 3.2 2 3.2 4.9 4.5c.7.3 1.3.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 2-1.3.2-.6.2-1.2.2-1.3s-.2-.2-.5-.3Z"/></svg>`;
   const base=role==='admin'?DIG:roleScopedDigs();
-  const d=sortDigsAZ(list||base);document.getElementById('dBody').innerHTML=d.map((x,i)=>{const u=waUrl(x);const ph=(x.wa||'').trim();return `<tr>
-    <td style="font-size:.82rem;color:var(--text-muted);font-variant-numeric:tabular-nums;width:3rem">${i+1}</td>
+  const d=sortDigsAZ(list||base);document.getElementById('dBody').innerHTML=d.map(x=>{const u=waUrl(x);const ph=(x.wa||'').trim();return `<tr>
     <td><strong>${x.pre} ${x.fn} ${x.ln}</strong>${x.pn?` <span style="color:var(--text-muted);font-size:.78rem">${x.pn}</span>`:''}</td>
     <td style="font-size:.82rem">${x.des}</td><td style="font-size:.82rem">${x.org}</td>
     <td style="font-size:.82rem">${ph?escapeHtml(ph):'—'}</td>
@@ -3176,7 +2955,6 @@ function fillViewDigPanel(d){
     ['Dietary',d.dietary?escapeHtml(d.dietary):dash],
     ['Primary Karyakar',d.k&&d.k!=='Unassigned'?escapeHtml(d.k):dash],
     ['Interest tags',d.interestTags?escapeHtml(d.interestTags):dash],
-    ['List number',d.listNo?escapeHtml(String(d.listNo)):dash],
     ['Protocol notes',d.protocolNotes?`<div class="dig-multiline">${escapeHtml(d.protocolNotes)}</div>`:dash],
     ['Last contact',d.lc&&d.lc!=='—'?escapeHtml(d.lc):dash],
     ['Status',d.st?escapeHtml(d.st):dash],
