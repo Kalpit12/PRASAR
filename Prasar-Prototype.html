@@ -2797,10 +2797,10 @@ async function doLogin(){
       return;
     }
     try{
-      const r=await fetch('/api/auth/admin-login',{
+      const r=await fetch('/api/auth/login',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({identifier:ident,password:p})
+        body:JSON.stringify({identifier:ident,email:ident,password:p,role:'ADMIN'})
       });
       const data=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(data.error||'Login failed');
@@ -2838,10 +2838,10 @@ async function doLogin(){
     const legacyDemo=ident.toLowerCase()==='karyakar'&&p==='karyakar123';
     if(!legacyDemo&&p.length){
       try{
-        const r=await fetch('/api/auth/karyakar-login',{
+        const r=await fetch('/api/auth/login',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({identifier:ident,password:p})
+          body:JSON.stringify({identifier:ident,email:ident,password:p,role:'KARYAKAR'})
         });
         const data=await r.json().catch(()=>({}));
         if(!r.ok)throw new Error(data.error||'Login failed');

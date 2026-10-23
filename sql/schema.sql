@@ -1,0 +1,1 @@
+-- Reference schema (applied at runtime via src/db.js init).

@@ -17,10 +17,19 @@ const { clearAllGuestData } = require("./clear-guests");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+const onVercel = Boolean(process.env.VERCEL);
 const prototypeFile = path.join(__dirname, "..", "Prasar-Prototype.html");
-const secretsFile = path.join(__dirname, "..", "data", "runtime-secrets.json");
+const dataRoot = onVercel ? path.join("/tmp", "prasar-data") : path.join(__dirname, "..", "data");
+const secretsFile = path.join(dataRoot, "runtime-secrets.json");
 let fileSecrets = {};
-fs.mkdirSync(path.dirname(secretsFile), { recursive: true });
+function safeMkdir(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    if (err && err.code !== "EEXIST") console.error("mkdir failed:", dir, err.message);
+  }
+}
+safeMkdir(dataRoot);
 if (fs.existsSync(secretsFile)) {
   try {
     fileSecrets = JSON.parse(fs.readFileSync(secretsFile, "utf8"));
@@ -28,21 +37,24 @@ if (fs.existsSync(secretsFile)) {
     fileSecrets = {};
   }
 }
-const onVercel = Boolean(process.env.VERCEL);
 if (!fileSecrets.PRASAR_API_KEY || !fileSecrets.PRASAR_BACKUP_KEY) {
   if (process.env.PRASAR_API_KEY && process.env.PRASAR_BACKUP_KEY) {
     fileSecrets = {
       PRASAR_API_KEY: process.env.PRASAR_API_KEY,
       PRASAR_BACKUP_KEY: process.env.PRASAR_BACKUP_KEY,
     };
-  } else if (!onVercel) {
+  } else {
     const generated = {
       PRASAR_API_KEY: crypto.randomBytes(48).toString("base64url"),
       PRASAR_BACKUP_KEY: crypto.randomBytes(48).toString("base64url"),
       created_at: new Date().toISOString(),
     };
     fileSecrets = generated;
-    fs.writeFileSync(secretsFile, JSON.stringify(generated, null, 2));
+    try {
+      fs.writeFileSync(secretsFile, JSON.stringify(generated, null, 2));
+    } catch {
+      /* read-only FS — in-memory keys only */
+    }
   }
 }
 const API_KEY = process.env.PRASAR_API_KEY || fileSecrets.PRASAR_API_KEY || "";
@@ -70,8 +82,8 @@ if (process.env.TRUST_PROXY === "1" || process.env.RENDER === "true" || isProduc
   app.set("trust proxy", 1);
 }
 
-const backupDir = path.join(__dirname, "..", "data", "backups");
-fs.mkdirSync(backupDir, { recursive: true });
+const backupDir = path.join(dataRoot, "backups");
+safeMkdir(backupDir);
 
 console.log("PRASAR API key source:", process.env.PRASAR_API_KEY ? "env" : "data/runtime-secrets.json");
 if (API_KEY) console.log("PRASAR API key: loaded (length " + API_KEY.length + ", not logged)");
@@ -289,7 +301,7 @@ const karyakarLoginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
+async function loginWithRole(req, res, roleFilter) {
   const raw =
     (typeof req.body?.identifier === "string" && req.body.identifier) ||
     (typeof req.body?.email === "string" && req.body.email) ||
@@ -303,115 +315,67 @@ app.post("/api/auth/karyakar-login", karyakarLoginLimiter, async (req, res) => {
     let result;
     if (isEmail(identifier)) {
       result = await db.query(
-        `SELECT id, full_name, email, "role", status, assigned_area, phone, password_hash
+        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
          FROM users
-         WHERE UPPER(TRIM("role")) = 'KARYAKAR' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
+         WHERE UPPER(TRIM(role)) = $1 AND LOWER(TRIM(email)) = LOWER(TRIM($2))
          LIMIT 1`,
-        [identifier]
+        [roleFilter, identifier]
       );
     } else {
       const nameKey = identifier.toLowerCase().replace(/\s+/g, " ");
       result = await db.query(
-        `SELECT id, full_name, email, "role", status, assigned_area, phone, password_hash
+        `SELECT id, full_name, email, role, status, assigned_area, phone, password_hash
          FROM users
-         WHERE UPPER(TRIM("role")) = 'KARYAKAR'
-           AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
+         WHERE UPPER(TRIM(role)) = $1
+           AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $2
          LIMIT 1`,
-        [nameKey]
+        [roleFilter, nameKey]
       );
     }
     const row = result.rows[0];
-    if (!row || String(row.role || "").trim().toUpperCase() !== "KARYAKAR") {
-      return res.status(401).json({ error: "Invalid email or password." });
-    }
+    if (!row) return res.status(401).json({ error: "Invalid email or password." });
     if (row.status === "INACTIVE") {
       return res.status(403).json({ error: "This account is inactive. Contact an administrator." });
     }
     const phRaw = row.password_hash;
     if (phRaw == null || String(phRaw).trim() === "") {
       return res.status(401).json({
-        error:
-          "No login password is saved for this account yet. An admin must open User Management → Edit this user, set “New login password”, and Save.",
+        error: "No login password is saved for this account yet.",
         code: "PASSWORD_NOT_SET",
       });
     }
-    const ph = String(phRaw).trim();
-    const match = verifyStoredPassword(password, ph);
-    if (match === null) {
-      return res.status(401).json({
-        error:
-          "The saved password uses an unsupported format. An admin must set the password again in User Management → Edit (PRASAR uses a secure hash in the app).",
-        code: "PASSWORD_UNSUPPORTED_FORMAT",
-      });
-    }
-    if (!match) {
+    const match = verifyStoredPassword(password, String(phRaw).trim());
+    if (match === null || !match) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
     setSessionCookie(res, row.id);
+    const apiRole = String(row.role || "").trim().toUpperCase();
     return res.json({
       user: {
         id: row.id,
         fullName: row.full_name,
         email: row.email,
-        role: "KARYAKAR",
+        role: apiRole,
         assignedArea: row.assigned_area || "",
         phone: row.phone || "",
         status: row.status,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("Login failed:", err.message);
     return res.status(500).json({ error: "Login failed." });
   }
+}
+
+app.post("/api/auth/login", karyakarLoginLimiter, async (req, res) => {
+  const roleRaw = String(req.body?.role || req.body?.loginRole || "").trim().toUpperCase();
+  const roleFilter = roleRaw === "ADMIN" || roleRaw === "ADMINISTRATOR" ? "ADMIN" : "KARYAKAR";
+  return loginWithRole(req, res, roleFilter);
 });
 
-app.post("/api/auth/admin-login", karyakarLoginLimiter, async (req, res) => {
-  const raw =
-    (typeof req.body?.identifier === "string" && req.body.identifier) ||
-    (typeof req.body?.email === "string" && req.body.email) ||
-    (typeof req.body?.login === "string" && req.body.login) ||
-    "";
-  const identifier = normalizeLoginIdentifier(raw);
-  const password = typeof req.body?.password === "string" ? req.body.password : "";
-  if (!identifier || !password) return badRequest(res, "identifier and password are required.");
+app.post("/api/auth/karyakar-login", karyakarLoginLimiter, (req, res) => loginWithRole(req, res, "KARYAKAR"));
 
-  try {
-    let result;
-    if (isEmail(identifier)) {
-      result = await db.query(
-        `SELECT id, full_name, email, role, status, password_hash
-         FROM users
-         WHERE UPPER(TRIM(role)) = 'ADMIN' AND LOWER(TRIM(email)) = LOWER(TRIM($1))
-         LIMIT 1`,
-        [identifier]
-      );
-    } else {
-      const nameKey = identifier.toLowerCase().replace(/\s+/g, " ");
-      result = await db.query(
-        `SELECT id, full_name, email, role, status, password_hash
-         FROM users
-         WHERE UPPER(TRIM(role)) = 'ADMIN'
-           AND LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
-         LIMIT 1`,
-        [nameKey]
-      );
-    }
-    const row = result.rows[0];
-    if (!row) return res.status(401).json({ error: "Invalid email or password." });
-    if (row.status === "INACTIVE") {
-      return res.status(403).json({ error: "This account is inactive." });
-    }
-    const ph = String(row.password_hash || "").trim();
-    if (!ph) return res.status(401).json({ error: "No password set for this admin account." });
-    const match = verifyStoredPassword(password, ph);
-    if (!match) return res.status(401).json({ error: "Invalid email or password." });
-    setSessionCookie(res, row.id);
-    return res.json({
-      user: { id: row.id, fullName: row.full_name, email: row.email, role: "ADMIN", status: row.status },
-    });
-  } catch {
-    return res.status(500).json({ error: "Login failed." });
-  }
-});
+app.post("/api/auth/admin-login", karyakarLoginLimiter, (req, res) => loginWithRole(req, res, "ADMIN"));
 
 app.post("/api/auth/logout", (_req, res) => {
   clearSessionCookie(res);
@@ -425,8 +389,8 @@ app.get("/", (_req, res) => {
   res.sendFile(prototypeFile);
 });
 
-const outboxDir = path.join(__dirname, "..", "data", "outbox");
-fs.mkdirSync(outboxDir, { recursive: true });
+const outboxDir = path.join(dataRoot, "outbox");
+safeMkdir(outboxDir);
 
 const mailer = nodemailer.createTransport({
   streamTransport: true,

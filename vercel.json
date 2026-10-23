@@ -3,7 +3,7 @@
   "framework": "express",
   "functions": {
     "src/server.js": {
-      "includeFiles": "{public/**,Prasar-Prototype.html}",
+      "includeFiles": "{sql/**,public/**,Prasar-Prototype.html}",
       "maxDuration": 60
     }
   },
