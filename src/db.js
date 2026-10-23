@@ -95,6 +95,16 @@ async function init() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_area TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS invitation_template_json TEXT;
+
+    CREATE TABLE IF NOT EXISTS volunteer_attendance (
+      id BIGSERIAL PRIMARY KEY,
+      event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'PRESENT' CHECK (status IN ('PRESENT', 'ABSENT')),
+      checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(event_id, user_id)
+    );
   `);
 }
 

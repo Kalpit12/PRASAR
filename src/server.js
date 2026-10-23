@@ -1266,16 +1266,126 @@ app.get("/api/notifications", async (req, res) => {
   }
 });
 
-app.get("/api/events/:id/volunteer-attendance", (req, res) => {
+app.get("/api/events/:id/volunteer-attendance", async (req, res) => {
   const eventId = Number(req.params.id);
   if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
-  return res.json({ eventId, records: [] });
+  try {
+    const event = await db.query("SELECT id FROM events WHERE id = $1", [eventId]);
+    if (!event.rows[0]) return res.status(404).json({ error: "Event not found." });
+    const result = await db.query(
+      `
+      SELECT u.id AS user_id, u.full_name, u.role, u.status AS user_status,
+             va.status, va.checked_in_at
+      FROM users u
+      LEFT JOIN volunteer_attendance va ON va.user_id = u.id AND va.event_id = $1
+      WHERE UPPER(TRIM(u.role)) = 'KARYAKAR' AND u.status = 'ACTIVE'
+      ORDER BY u.full_name ASC
+    `,
+      [eventId]
+    );
+    const records = result.rows.map((row) => ({
+      userId: row.user_id,
+      fullName: row.full_name,
+      role: row.role,
+      status: row.status === "PRESENT" ? "PRESENT" : row.status === "ABSENT" ? "ABSENT" : "NOT_MARKED",
+      checkedInAt: row.checked_in_at || null,
+    }));
+    const present = records.filter((r) => r.status === "PRESENT").length;
+    return res.json({
+      eventId,
+      summary: { total: records.length, present, absent: records.filter((r) => r.status === "ABSENT").length },
+      records,
+    });
+  } catch {
+    return res.status(500).json({ error: "Failed to load volunteer attendance." });
+  }
 });
 
-app.get("/api/events/:id/invitation-template", (req, res) => {
+app.post("/api/events/:id/volunteer-attendance", async (req, res) => {
+  const eventId = Number(req.params.id);
+  const userId = Number(req.body?.userId);
+  const statusRaw = String(req.body?.status || "PRESENT").trim().toUpperCase();
+  const status = statusRaw === "ABSENT" ? "ABSENT" : "PRESENT";
+  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
+  if (!Number.isFinite(userId) || userId <= 0) return badRequest(res, "userId is required.");
+  try {
+    const sessionId = readSessionUserId(req);
+    let actor = null;
+    if (sessionId) {
+      const actorRow = await db.query("SELECT id, role, status FROM users WHERE id = $1", [sessionId]);
+      actor = actorRow.rows[0] || null;
+    }
+    const isAdmin = actor && String(actor.role || "").toUpperCase() === "ADMIN" && actor.status === "ACTIVE";
+    const isSelf = actor && Number(actor.id) === userId;
+    if (!isAdmin && !isSelf) {
+      return res.status(403).json({ error: "Only admins or the volunteer can update attendance." });
+    }
+    const event = await db.query("SELECT id FROM events WHERE id = $1", [eventId]);
+    if (!event.rows[0]) return res.status(404).json({ error: "Event not found." });
+    const user = await db.query(
+      "SELECT id FROM users WHERE id = $1 AND UPPER(TRIM(role)) = 'KARYAKAR' AND status = 'ACTIVE'",
+      [userId]
+    );
+    if (!user.rows[0]) return badRequest(res, "Invalid karyakar user.");
+    const result = await db.query(
+      `
+      INSERT INTO volunteer_attendance (event_id, user_id, status, checked_in_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (event_id, user_id)
+      DO UPDATE SET status = EXCLUDED.status, checked_in_at = NOW()
+      RETURNING *
+    `,
+      [eventId, userId, status]
+    );
+    return res.json({ ok: true, record: result.rows[0] });
+  } catch {
+    return res.status(500).json({ error: "Failed to save volunteer attendance." });
+  }
+});
+
+app.get("/api/events/:id/invitation-template", async (req, res) => {
   const eventId = Number(req.params.id);
   if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
-  return res.json({ eventId, template: null });
+  try {
+    const result = await db.query(
+      "SELECT id, invitation_template_json FROM events WHERE id = $1",
+      [eventId]
+    );
+    const row = result.rows[0];
+    if (!row) return res.status(404).json({ error: "Event not found." });
+    let template = null;
+    if (row.invitation_template_json) {
+      try {
+        template = JSON.parse(row.invitation_template_json);
+      } catch {
+        template = null;
+      }
+    }
+    return res.json({ eventId, template });
+  } catch {
+    return res.status(500).json({ error: "Failed to load invitation template." });
+  }
+});
+
+app.put("/api/events/:id/invitation-template", async (req, res) => {
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
+  const template = req.body?.template;
+  if (template == null || typeof template !== "object") {
+    return badRequest(res, "template object is required.");
+  }
+  try {
+    const payload = JSON.stringify(template);
+    if (payload.length > 500000) return badRequest(res, "Template too large.");
+    const result = await db.query(
+      "UPDATE events SET invitation_template_json = $2 WHERE id = $1 RETURNING id",
+      [eventId, payload]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: "Event not found." });
+    return res.json({ ok: true, eventId });
+  } catch {
+    return res.status(500).json({ error: "Failed to save invitation template." });
+  }
 });
 
 app.post("/api/system/backup", async (req, res) => {
