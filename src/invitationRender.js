@@ -26,12 +26,60 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+const GUEST_MESSAGE_PARAGRAPH_CUES = [
+  "Jai Swaminarayan",
+  "As the festival of lights",
+  "May this beautiful festival",
+  "We would be delighted to have you",
+  "Please find the accompanying poster",
+  "We look forward to welcoming you",
+  "Kindly confirm your attendance",
+  "Warm regards",
+];
+
+function normalizeGuestMessageParagraphs(text) {
+  if (typeof text !== "string") return "";
+  let s = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  if (!s) return "";
+  if (s.includes("\n")) {
+    return s
+      .split("\n")
+      .map((line) => line.replace(/[ \t]+/g, " ").trim())
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  s = s.replace(/(🪔 Celebrate the Spirit of Diwali with Us 🪔)\s+/u, "$1\n\n");
+  for (const cue of GUEST_MESSAGE_PARAGRAPH_CUES) {
+    const esc = cue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    s = s.replace(new RegExp(`([^\\n])\\s+(?=${esc})`), "$1\n\n");
+  }
+  return s.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function messageToEmailHtml(text) {
+  const trimmed = normalizeGuestMessageParagraphs(text);
+  if (!trimmed) return "";
+  const paras = trimmed.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+  if (!paras.length) return "";
+  return paras
+    .map(
+      (p, i) =>
+        `<p style="margin:${i === 0 ? "20px" : "0"} 0 14px;font-size:15px;line-height:1.65;color:#444;">${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`
+    )
+    .join("");
+}
+
 function formatDateDisplay(raw) {
   const s = String(raw || "").trim();
   if (!s) return "—";
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
   const d = new Date(s);
   if (!Number.isNaN(d.getTime())) {
-    return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
   }
   return s;
 }
@@ -72,9 +120,9 @@ function buildInvitationEmailHtml(invite) {
   const venue = escapeHtml(invite.venue);
   const time = escapeHtml(invite.event_time || "");
   const date = escapeHtml(formatDateDisplay(invite.event_date));
-  const custom = String(invite.custom_message || "").trim();
+  const custom = normalizeGuestMessageParagraphs(String(invite.custom_message || ""));
   const msgBlock = custom
-    ? `<p style="margin:20px 0 0;font-size:15px;line-height:1.65;color:#444;">${escapeHtml(custom).replace(/\n/g, "<br/>")}</p>`
+    ? messageToEmailHtml(custom)
     : `<p style="margin:20px 0 0;font-size:15px;line-height:1.65;color:#444;">The BAPS Swaminarayan Sanstha cordially invites you to grace this occasion.</p>`;
   const timeRow = time
     ? `<tr><td style="width:40px;vertical-align:top;font-size:15px;color:#1A237E;">●</td><td style="font-size:15px;color:#444;padding-bottom:10px;"><strong style="color:#1A237E;">Time</strong><br/><span style="color:#333;">${time}</span></td></tr>`
@@ -203,9 +251,15 @@ function renderInvitationPdfBuffer(invite) {
     doc.text(`Venue: ${String(invite.venue || "—")}`, inner, iy);
     y += boxH + 20;
 
-    const bodyMsg = String(invite.custom_message || "").trim() || "You are cordially invited.";
-    doc.font("Helvetica").fontSize(10).fillColor("#333").text(bodyMsg, margin, y, { width: contentW, lineGap: 4 });
-    y += doc.heightOfString(bodyMsg, { width: contentW, lineGap: 4 }) + 28;
+    const bodyMsg =
+      normalizeGuestMessageParagraphs(String(invite.custom_message || "")) || "You are cordially invited.";
+    const bodyForPdf = bodyMsg.replace(/\n{3,}/g, "\n\n");
+    doc.font("Helvetica").fontSize(10).fillColor("#333").text(bodyForPdf, margin, y, {
+      width: contentW,
+      lineGap: 4,
+      paragraphGap: 10,
+    });
+    y += doc.heightOfString(bodyForPdf, { width: contentW, lineGap: 4, paragraphGap: 10 }) + 28;
 
     doc.moveTo(margin, y).lineTo(pageW - margin, y).strokeColor("#E8E0D4").lineWidth(0.5).stroke();
     y += 14;

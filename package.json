@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "echo \"No tests configured\""
+    "test": "node scripts/test-features.js",
+    "test:features": "node scripts/test-features.js",
+    "test:system": "node scripts/system-e2e-test.js",
+    "test:security": "node scripts/security-tests.js"
   },
   "keywords": [],
   "author": "",
@@ -16,11 +19,11 @@
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.1",
-    "express": "^4.21.2",
+    "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "helmet": "^8.1.0",
     "nodemailer": "^8.0.4",
     "pdfkit": "^0.18.0",
-    "pg": "^8.23.1"
+    "pg": "^8.20.0"
   }
 }

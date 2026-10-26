@@ -7,6 +7,9 @@
       "maxDuration": 60
     }
   },
+  "rewrites": [
+    { "source": "/local-app/:path*", "destination": "/:path*" }
+  ],
   "headers": [
     {
       "source": "/",

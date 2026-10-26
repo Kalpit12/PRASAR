@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PRASAR">
+  <rect width="64" height="64" rx="14" fill="#1A237E"/>
+  <path fill="#FFFFFF" d="M20 48V16h16.2c7.4 0 12.3 4.2 12.3 10.8 0 6.5-4.9 10.7-12.3 10.7H28.4V48H20zm8.4-16.2h7.1c3.5 0 5.6-1.8 5.6-4.7s-2.1-4.8-5.6-4.8h-7.1v9.5z"/>
+  <circle cx="46" cy="46" r="5" fill="#E8820C"/>
+</svg>

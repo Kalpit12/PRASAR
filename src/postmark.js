@@ -32,25 +32,34 @@ function htmlToPlainText(html) {
  * @param {string} opts.htmlBody
  * @param {string} [opts.textBody]
  * @param {string} [opts.tag]
+ * @param {string} [opts.fromEmail] overrides POSTMARK_SENDER_EMAIL
+ * @param {string} [opts.fromName] overrides POSTMARK_SENDER_NAME
+ * @param {string} [opts.replyTo] overrides POSTMARK_REPLY_TO
  * @param {{ name: string, contentBase64: string, contentType?: string }[]} [opts.attachments]
  * @returns {Promise<{ success: boolean, messageId?: string, error?: string, submittedAt?: string }>}
  */
-async function sendEmail({ to, subject, htmlBody, textBody, tag, attachments }) {
+async function sendEmail({ to, subject, htmlBody, textBody, tag, attachments, fromEmail, fromName, replyTo }) {
   const token = String(process.env.POSTMARK_API_KEY || "").trim();
   if (!token) {
     return { success: false, error: "Postmark API key not configured" };
   }
 
   const senderEmail = cleanText(
-    process.env.POSTMARK_SENDER_EMAIL || process.env.POSTMARK_FROM_EMAIL || "",
+    fromEmail || process.env.POSTMARK_SENDER_EMAIL || process.env.POSTMARK_FROM_EMAIL || "",
     200
   );
-  const senderName = cleanText(process.env.POSTMARK_SENDER_NAME || "PRASAR", 120);
+  const senderName = cleanText(
+    fromName || process.env.POSTMARK_SENDER_NAME || "PRASAR",
+    120
+  );
   const stream = cleanText(process.env.POSTMARK_MESSAGE_STREAM || "outbound", 64) || "outbound";
-  const replyTo = cleanText(process.env.POSTMARK_REPLY_TO || "", 200);
+  const replyToAddr = cleanText(
+    replyTo || process.env.POSTMARK_REPLY_TO || "",
+    200
+  );
 
   if (!senderEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail)) {
-    return { success: false, error: "POSTMARK_SENDER_EMAIL is missing or invalid" };
+    return { success: false, error: "Sender email is missing or invalid" };
   }
 
   const payload = {
@@ -63,8 +72,8 @@ async function sendEmail({ to, subject, htmlBody, textBody, tag, attachments }) 
     TrackOpens: true,
   };
 
-  if (replyTo && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
-    payload.ReplyTo = replyTo;
+  if (replyToAddr && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyToAddr)) {
+    payload.ReplyTo = replyToAddr;
   }
   if (tag) {
     payload.Tag = cleanText(tag, 100);

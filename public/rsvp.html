@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Event RSVP · PRASAR</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <style>
+    :root { --navy:#1A237E; --saffron:#E8820C; --gold:#C9A84C; --bg:#F7F5F0; --text:#2A2A2A; --muted:#6B6B6B; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; font-family: Georgia, "Times New Roman", serif; background: linear-gradient(160deg, #F7F5F0 0%, #EDE8DC 45%, #F3EFE6 100%); color:var(--text); display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { width:100%; max-width:480px; background:#fff; border:1px solid #E5DFD3; border-radius:16px; padding:32px 28px; box-shadow:0 18px 40px rgba(26,35,126,.08); }
+    .brand { font-size:.72rem; letter-spacing:2.4px; text-transform:uppercase; color:var(--gold); margin:0 0 10px; font-family: Arial, sans-serif; }
+    h1 { font-size:1.55rem; margin:0 0 8px; color:var(--navy); line-height:1.25; }
+    .sub { color:var(--muted); font-size:.95rem; margin:0 0 22px; line-height:1.5; font-family: Arial, sans-serif; }
+    .meta { background:#F8F6F1; border-radius:12px; padding:14px 16px; margin-bottom:22px; font-family: Arial, sans-serif; font-size:.88rem; }
+    .meta div { margin:6px 0; }
+    .meta strong { color:var(--navy); }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    button { flex:1; min-width:140px; border:0; border-radius:10px; padding:12px 16px; font-size:.95rem; cursor:pointer; font-family: Arial, sans-serif; font-weight:600; }
+    .yes { background:var(--navy); color:#fff; }
+    .no { background:#fff; color:var(--navy); border:1px solid #C9C4B8; }
+    .msg { margin-top:16px; font-family: Arial, sans-serif; font-size:.9rem; color:var(--muted); min-height:1.2em; }
+    .err { color:#B71C1C; }
+    .ok { color:#1B5E20; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <p class="brand">BAPS Swaminarayan Sanstha · Africa</p>
+    <h1 id="title">Event RSVP</h1>
+    <p class="sub" id="greeting">Confirm whether you will attend.</p>
+    <div class="meta" id="meta">Loading invitation…</div>
+    <div class="actions" id="actions" style="display:none">
+      <button class="yes" type="button" onclick="submitRsvp('ACCEPTED')">Yes, I will attend</button>
+      <button class="no" type="button" onclick="submitRsvp('DECLINED')">Unable to attend</button>
+    </div>
+    <p class="msg" id="msg"></p>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const token = (params.get('token') || location.hash.replace(/^#/, '') || '').trim();
+    const meta = document.getElementById('meta');
+    const msg = document.getElementById('msg');
+    const actions = document.getElementById('actions');
+
+    async function load() {
+      if (!token) {
+        meta.textContent = 'This RSVP link is missing a token.';
+        msg.className = 'msg err';
+        msg.textContent = 'Ask your PR karyakar for a new invitation RSVP link.';
+        return;
+      }
+      try {
+        const r = await fetch('/api/rsvp/' + encodeURIComponent(token));
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || 'Could not load RSVP');
+        document.getElementById('title').textContent = data.event_title || 'Event RSVP';
+        const name = [data.salutation, data.dignitary_name].filter(Boolean).join(' ').trim();
+        document.getElementById('greeting').textContent = name
+          ? `Dear ${name}, please confirm your attendance.`
+          : 'Please confirm your attendance.';
+        meta.innerHTML =
+          `<div><strong>Event:</strong> ${esc(data.event_title || '—')}</div>` +
+          `<div><strong>Date:</strong> ${esc(fmtEventDate(data.event_date))}${data.event_time ? ' · ' + esc(data.event_time) : ''}</div>` +
+          `<div><strong>Venue:</strong> ${esc(data.venue || '—')}</div>` +
+          `<div><strong>Current RSVP:</strong> ${esc(labelRsvp(data.rsvp_status || 'PENDING'))}</div>`;
+        actions.style.display = 'flex';
+        if (data.rsvp_status === 'ACCEPTED' || data.rsvp_status === 'DECLINED' || data.rsvp_status === 'BY_PHONE' || data.rsvp_status === 'BY_EMAIL' || data.rsvp_status === 'BY_WHATSAPP' || data.rsvp_status === 'IN_PERSON') {
+          msg.className = 'msg ok';
+          msg.textContent = 'You previously responded: ' + labelRsvp(data.rsvp_status) + '. You may update your response below.';
+        }
+      } catch (e) {
+        meta.textContent = 'Unable to load this invitation.';
+        msg.className = 'msg err';
+        msg.textContent = e.message || 'Failed to load';
+      }
+    }
+
+    function labelRsvp(s) {
+      const v = String(s || '').toUpperCase();
+      if (v === 'BY_PHONE') return 'Phone';
+      if (v === 'BY_EMAIL') return 'Email';
+      if (v === 'BY_WHATSAPP') return 'WhatsApp';
+      if (v === 'IN_PERSON') return 'In-person';
+      if (v === 'ACCEPTED') return 'Accepted';
+      if (v === 'DECLINED') return 'Declined';
+      return v || 'Pending';
+    }
+
+    function fmtEventDate(raw) {
+      const s = String(raw || '').trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return m[3] + '/' + m[2] + '/' + m[1];
+      return s || '—';
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function submitRsvp(status) {
+      msg.className = 'msg';
+      msg.textContent = 'Saving…';
+      try {
+        const r = await fetch('/api/rsvp/' + encodeURIComponent(token), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rsvpStatus: status })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || 'Failed to save RSVP');
+        msg.className = 'msg ok';
+        msg.textContent = status === 'ACCEPTED'
+          ? 'Thank you — your attendance is confirmed.'
+          : 'Thank you — we have recorded that you are unable to attend.';
+        await load();
+      } catch (e) {
+        msg.className = 'msg err';
+        msg.textContent = e.message || 'Failed to save';
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
