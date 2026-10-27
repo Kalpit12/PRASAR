@@ -5691,7 +5691,7 @@ function shakeLogin(){
 async function doLogin(){
   role=document.getElementById('loginRole').value;
   const u=(document.getElementById('loginUser').value||'').trim();
-  const p=document.getElementById('loginPass').value||'';
+  const p=(document.getElementById('loginPass').value||'').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
   const persist=document.getElementById('rememberMe').checked;
   if(!u||!p){
     shakeLogin();

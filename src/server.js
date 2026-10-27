@@ -13,6 +13,7 @@ const db = require("./db");
 const postmark = require("./postmark");
 const whatsapp = require("./whatsapp");
 const invitationRender = require("./invitationRender");
+const { canonicalPerson, volunteerEmail } = require("./leads");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -173,6 +174,12 @@ function normalizeLoginIdentifier(raw) {
     .trim();
 }
 
+function normalizeLoginPassword(raw) {
+  return String(raw || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim();
+}
+
 function parseCookies(req) {
   const header = String(req.headers.cookie || "");
   const out = {};
@@ -297,18 +304,37 @@ function requireAdmin(req, res, next) {
 
 const LOGIN_FAIL_MESSAGE = "Invalid email or password.";
 
+function loginNameKeys(identifier) {
+  const keys = new Set();
+  const add = (raw) => {
+    const k = String(raw || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+    if (k) keys.add(k);
+  };
+  add(identifier);
+  const canon = canonicalPerson(identifier);
+  if (canon && canon !== identifier) add(canon);
+  return [...keys];
+}
+
+function loginEmailKeys(identifier) {
+  const emails = new Set();
+  const add = (raw) => {
+    const e = String(raw || "")
+      .trim()
+      .toLowerCase();
+    if (isEmail(e)) emails.add(e);
+  };
+  add(identifier);
+  const canon = canonicalPerson(identifier);
+  if (canon) add(volunteerEmail(canon));
+  return [...emails];
+}
+
 async function findUsersForLogin(identifier, preferredRole) {
   const cols = `id, full_name, email, "role", status, assigned_area, phone, password_hash`;
-  if (isEmail(identifier)) {
-    return db.query(
-      `SELECT ${cols}
-       FROM users
-       WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))
-       LIMIT 1`,
-      [identifier]
-    );
-  }
-  const nameKey = identifier.toLowerCase().replace(/\s+/g, " ");
   const roleHint = String(preferredRole || "")
     .trim()
     .toUpperCase();
@@ -318,12 +344,26 @@ async function findUsersForLogin(identifier, preferredRole) {
       : roleHint === "KARYAKAR"
         ? `CASE WHEN UPPER(TRIM("role")) = 'KARYAKAR' THEN 0 WHEN UPPER(TRIM("role")) = 'ADMIN' THEN 1 ELSE 2 END`
         : `CASE WHEN UPPER(TRIM("role")) = 'ADMIN' THEN 0 WHEN UPPER(TRIM("role")) = 'KARYAKAR' THEN 1 ELSE 2 END`;
+
+  if (isEmail(identifier)) {
+    return db.query(
+      `SELECT ${cols}
+       FROM users
+       WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))
+       LIMIT 1`,
+      [identifier]
+    );
+  }
+
+  const nameKeys = loginNameKeys(identifier);
+  const emailKeys = loginEmailKeys(identifier);
   return db.query(
     `SELECT ${cols}
      FROM users
-     WHERE LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = $1
+     WHERE LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = ANY($1::text[])
+        OR LOWER(TRIM(email)) = ANY($2::text[])
      ORDER BY ${roleOrder}, id ASC`,
-    [nameKey]
+    [nameKeys, emailKeys]
   );
 }
 
@@ -334,7 +374,8 @@ async function loginWithPassword(req, res, allowedRoles) {
     (typeof req.body?.login === "string" && req.body.login) ||
     "";
   const identifier = normalizeLoginIdentifier(raw);
-  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const password =
+    typeof req.body?.password === "string" ? normalizeLoginPassword(req.body.password) : "";
   const preferredRole =
     typeof req.body?.role === "string"
       ? req.body.role

@@ -117,6 +117,7 @@ module.exports = {
   compactKey,
   personKey,
   isSkippedLead,
+  canonicalPerson,
   volunteerEmail,
   peopleFromLead,
   planGuestImport,
