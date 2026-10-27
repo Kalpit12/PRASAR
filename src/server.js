@@ -13,7 +13,8 @@ const db = require("./db");
 const postmark = require("./postmark");
 const whatsapp = require("./whatsapp");
 const invitationRender = require("./invitationRender");
-const { canonicalPerson, volunteerEmail, leadMatchesVolunteer } = require("./leads");
+const { canonicalPerson, volunteerEmail, leadMatchesVolunteer, compactKey, personKey } = require("./leads");
+const { buildPassword } = require("../scripts/credential-passwords");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -304,7 +305,14 @@ function requireAdmin(req, res, next) {
 
 const LOGIN_FAIL_MESSAGE = "Invalid email or password.";
 
-function loginNameKeys(identifier) {
+function stripParentheticalName(raw) {
+  return String(raw || "")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function loginNameMatchKeys(identifier) {
   const keys = new Set();
   const add = (raw) => {
     const k = String(raw || "")
@@ -312,14 +320,16 @@ function loginNameKeys(identifier) {
       .replace(/\s+/g, " ")
       .trim();
     if (k) keys.add(k);
+    const stripped = stripParentheticalName(k).toLowerCase();
+    if (stripped) keys.add(stripped);
   };
   add(identifier);
   const canon = canonicalPerson(identifier);
-  if (canon && canon !== identifier) add(canon);
+  if (canon) add(canon);
   return [...keys];
 }
 
-function loginEmailKeys(identifier) {
+function loginVolunteerEmailKeys(identifier) {
   const emails = new Set();
   const add = (raw) => {
     const e = String(raw || "")
@@ -328,9 +338,29 @@ function loginEmailKeys(identifier) {
     if (isEmail(e)) emails.add(e);
   };
   add(identifier);
-  const canon = canonicalPerson(identifier);
-  if (canon) add(volunteerEmail(canon));
+  for (const variant of [identifier, stripParentheticalName(identifier), canonicalPerson(identifier)]) {
+    if (!variant) continue;
+    add(volunteerEmail(variant));
+  }
   return [...emails];
+}
+
+function volunteerEmailPrefixPattern(identifier) {
+  const slug = compactKey(stripParentheticalName(identifier) || identifier).replace(/ /g, ".");
+  if (!slug) return null;
+  return `${slug}.%@volunteer.prasar.local`;
+}
+
+function userPersonKeys(fullName) {
+  const keys = new Set();
+  const add = (raw) => {
+    const pk = personKey(raw);
+    if (pk) keys.add(pk);
+  };
+  add(fullName);
+  add(stripParentheticalName(fullName));
+  add(canonicalPerson(fullName));
+  return keys;
 }
 
 async function findUsersForLogin(identifier, preferredRole) {
@@ -350,21 +380,81 @@ async function findUsersForLogin(identifier, preferredRole) {
       `SELECT ${cols}
        FROM users
        WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))
-       LIMIT 1`,
+       ORDER BY ${roleOrder}, id ASC`,
       [identifier]
     );
   }
 
-  const nameKeys = loginNameKeys(identifier);
-  const emailKeys = loginEmailKeys(identifier);
-  return db.query(
+  const nameKeys = loginNameMatchKeys(identifier);
+  const emailKeys = loginVolunteerEmailKeys(identifier);
+  const emailPrefix = volunteerEmailPrefixPattern(identifier);
+  const idPersonKeys = userPersonKeys(identifier);
+  const result = await db.query(
     `SELECT ${cols}
      FROM users
      WHERE LOWER(regexp_replace(trim(full_name), '[[:space:]]+', ' ', 'g')) = ANY($1::text[])
+        OR LOWER(regexp_replace(regexp_replace(trim(full_name), '\\([^)]+\\)', '', 'g'), '[[:space:]]+', ' ', 'g')) = ANY($1::text[])
         OR LOWER(TRIM(email)) = ANY($2::text[])
+        OR ($3::text IS NOT NULL AND LOWER(TRIM(email)) LIKE LOWER($3))
      ORDER BY ${roleOrder}, id ASC`,
-    [nameKeys, emailKeys]
+    [nameKeys, emailKeys, emailPrefix]
   );
+  if (!idPersonKeys.size) return result;
+  const byId = new Map(result.rows.map((row) => [Number(row.id), row]));
+  const all = await db.query(`SELECT ${cols} FROM users ORDER BY id ASC`);
+  for (const row of all.rows) {
+    const rowKeys = userPersonKeys(row.full_name);
+    for (const key of idPersonKeys) {
+      if (rowKeys.has(key)) {
+        byId.set(Number(row.id), row);
+        break;
+      }
+    }
+  }
+  const merged = [...byId.values()].sort((a, b) => {
+    const roleRank = (r) => {
+      const u = String(r || "").trim().toUpperCase();
+      if (roleHint === "ADMIN") return u === "ADMIN" ? 0 : u === "KARYAKAR" ? 1 : 2;
+      if (roleHint === "KARYAKAR") return u === "KARYAKAR" ? 0 : u === "ADMIN" ? 1 : 2;
+      return u === "ADMIN" ? 0 : u === "KARYAKAR" ? 1 : 2;
+    };
+    const d = roleRank(a.role) - roleRank(b.role);
+    return d !== 0 ? d : Number(a.id) - Number(b.id);
+  });
+  return { rows: merged };
+}
+
+function credentialSheetPassword(row) {
+  const role = String(row?.role || "")
+    .trim()
+    .toUpperCase();
+  if (!["ADMIN", "KARYAKAR"].includes(role)) return "";
+  try {
+    return buildPassword(String(row.full_name || ""), String(row.email || ""), role, new Set());
+  } catch {
+    return "";
+  }
+}
+
+async function passwordMatchesUser(row, password) {
+  const phRaw = row.password_hash;
+  if (phRaw != null && String(phRaw).trim() !== "") {
+    const ok = verifyStoredPassword(password, String(phRaw).trim());
+    if (ok === true) return true;
+  }
+  const expected = credentialSheetPassword(row);
+  if (expected && constantTimeCompareStrings(password, expected)) {
+    try {
+      await db.query("UPDATE users SET password_hash = $1 WHERE id = $2", [
+        hashUserPassword(password),
+        row.id,
+      ]);
+    } catch {
+      /* still allow login if hash update fails */
+    }
+    return true;
+  }
+  return false;
 }
 
 async function loginWithPassword(req, res, allowedRoles) {
@@ -395,10 +485,7 @@ async function loginWithPassword(req, res, allowedRoles) {
     let matched = null;
     for (const row of candidates) {
       if (String(row.status || "").toUpperCase() === "INACTIVE") continue;
-      const phRaw = row.password_hash;
-      if (phRaw == null || String(phRaw).trim() === "") continue;
-      const ok = verifyStoredPassword(password, String(phRaw).trim());
-      if (ok === true) {
+      if (await passwordMatchesUser(row, password)) {
         matched = row;
         break;
       }
