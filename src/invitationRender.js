@@ -1,19 +1,31 @@
 /**
  * Branded invitation HTML email + PDF buffer for dignitary communications.
- * Logo: public/BAPS.png — use PUBLIC_APP_URL (e.g. https://prasar.onrender.com) on live
- * so the email uses an absolute image URL; otherwise embeds base64 if the file exists.
+ * Logo: public/prasar-logo.png — use PUBLIC_APP_URL on live for absolute image URLs;
+ * otherwise embeds base64 if the file exists.
  */
 
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
 
+const LOGO_FILES = ["prasar-logo.png", "BAPS.png"];
+
 function readLogoBuffer() {
   try {
-    const p = path.join(__dirname, "..", "public", "BAPS.png");
-    if (fs.existsSync(p)) return fs.readFileSync(p);
+    for (const name of LOGO_FILES) {
+      const p = path.join(__dirname, "..", "public", name);
+      if (fs.existsSync(p)) return fs.readFileSync(p);
+    }
   } catch (_e) {}
   return null;
+}
+
+function logoPublicName() {
+  for (const name of LOGO_FILES) {
+    const p = path.join(__dirname, "..", "public", name);
+    if (fs.existsSync(p)) return name;
+  }
+  return LOGO_FILES[0];
 }
 
 const logoBuffer = readLogoBuffer();
@@ -101,8 +113,8 @@ function buildLogoHtmlForEmail() {
     String(process.env.RENDER_EXTERNAL_URL || "").trim()
   ).replace(/\/+$/, "");
   if (base) {
-    const src = `${base}/local-app/BAPS.png`;
-    return `<img src="${escapeHtml(src)}" width="72" alt="BAPS Swaminarayan Sanstha" style="display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;height:auto;max-width:96px;" />`;
+    const src = `${base}/local-app/${logoPublicName()}`;
+    return `<img src="${escapeHtml(src)}" width="72" alt="Swaminarayan" style="display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;height:auto;max-width:96px;" />`;
   }
   if (logoBuffer && logoBuffer.length && logoBuffer.length < 500000) {
     return `<img src="data:image/png;base64,${logoBuffer.toString("base64")}" width="72" alt="BAPS Swaminarayan Sanstha" style="display:block;margin:0 auto 14px;border:0;height:auto;max-width:96px;" />`;
