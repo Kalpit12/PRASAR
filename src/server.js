@@ -13,7 +13,7 @@ const db = require("./db");
 const postmark = require("./postmark");
 const whatsapp = require("./whatsapp");
 const invitationRender = require("./invitationRender");
-const { canonicalPerson, volunteerEmail } = require("./leads");
+const { canonicalPerson, volunteerEmail, leadMatchesVolunteer } = require("./leads");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -1900,8 +1900,142 @@ app.delete("/api/events/:id/invitation-template", async (req, res) => {
   }
 });
 
+function dignitaryAssignedToKaryakar(row, auth) {
+  const actorName = String(auth?.full_name || "").trim().toLowerCase();
+  const actorId = Number(auth?.id || 0);
+  if (actorId > 0 && Number(row.submitted_by_user_id) === actorId) return true;
+  if (!actorName) return false;
+  for (const field of ["karyakar_name", "karyakar_name_secondary", "karyakar_name_tertiary"]) {
+    if (String(row[field] || "").trim().toLowerCase() === actorName) return true;
+  }
+  return false;
+}
+
+function isTrackerEligibleDignitaryRow(row, auth) {
+  const approval = String(row.approval_status || "APPROVED").trim().toUpperCase();
+  const status = String(row.status || "ACTIVE").trim().toUpperCase();
+  if (approval !== "APPROVED" || status !== "ACTIVE") return false;
+  const role = String(auth?.role || "").trim().toUpperCase();
+  if (role === "ADMIN") return true;
+  if (role === "KARYAKAR") {
+    return (
+      dignitaryAssignedToKaryakar(row, auth) ||
+      leadMatchesVolunteer(
+        row.karyakar_name,
+        auth.full_name || "",
+        row.karyakar_name_secondary,
+        row.karyakar_name_tertiary
+      )
+    );
+  }
+  return false;
+}
+
+function invitationVisibleToAuth(row, auth) {
+  const role = String(auth?.role || "").trim().toUpperCase();
+  if (role === "ADMIN") return true;
+  if (role !== "KARYAKAR") return false;
+  return (
+    dignitaryAssignedToKaryakar(row, auth) ||
+    leadMatchesVolunteer(
+      row.karyakar_name,
+      auth.full_name || "",
+      row.karyakar_name_secondary,
+      row.karyakar_name_tertiary
+    )
+  );
+}
+
+async function requireInvitationAccess(req, res, invitationId) {
+  const result = await db.query(
+    `SELECT i.id,
+            d.karyakar_name, d.karyakar_name_secondary, d.karyakar_name_tertiary, d.submitted_by_user_id
+     FROM invitations i
+     JOIN dignitaries d ON d.id = i.dignitary_id
+     WHERE i.id = $1`,
+    [invitationId]
+  );
+  const row = result.rows[0];
+  if (!row) {
+    res.status(404).json({ error: "Invitation not found." });
+    return false;
+  }
+  if (!invitationVisibleToAuth(row, req.auth || {})) {
+    res.status(403).json({ error: "Not allowed to access this invitation." });
+    return false;
+  }
+  return true;
+}
+
+/** Create missing invitation rows so Invitation Tracker can list every inviteable dignitary for an event. */
+app.post("/api/events/:id/ensure-tracker-invitations", async (req, res) => {
+  const eventId = Number(req.params.id);
+  if (!Number.isInteger(eventId) || eventId <= 0) return badRequest(res, "Invalid event id.");
+  const auth = req.auth || {};
+  const role = String(auth.role || "").trim().toUpperCase();
+  if (!["ADMIN", "KARYAKAR"].includes(role)) {
+    return res.status(403).json({ error: "Not allowed." });
+  }
+  try {
+    const eventRes = await db.query(
+      `SELECT id, standard_message, COALESCE(NULLIF(UPPER(TRIM(status)), ''), 'PUBLISHED') AS status
+       FROM events WHERE id = $1`,
+      [eventId]
+    );
+    const event = eventRes.rows[0];
+    if (!event) return res.status(404).json({ error: "Event not found." });
+    if (role === "KARYAKAR" && String(event.status).toUpperCase() === "DRAFT") {
+      return res.status(403).json({ error: "Event is not published." });
+    }
+    const msg = cleanMultilineText(event.standard_message || "", 2000);
+    const digs = await db.query(
+      `SELECT id,
+              COALESCE(NULLIF(UPPER(TRIM(approval_status)), ''), 'APPROVED') AS approval_status,
+              COALESCE(NULLIF(UPPER(TRIM(status)), ''), 'ACTIVE') AS status,
+              karyakar_name, karyakar_name_secondary, karyakar_name_tertiary,
+              submitted_by_user_id
+       FROM dignitaries`
+    );
+    const eligible = digs.rows.filter((row) => isTrackerEligibleDignitaryRow(row, auth));
+    if (!eligible.length) {
+      return res.json({ eventId, created: 0, skipped: 0, totalEligible: 0 });
+    }
+    const existing = await db.query(
+      `SELECT dignitary_id FROM invitations WHERE event_id = $1`,
+      [eventId]
+    );
+    const have = new Set(existing.rows.map((r) => Number(r.dignitary_id)));
+    let created = 0;
+    let skipped = 0;
+    for (const row of eligible) {
+      if (have.has(Number(row.id))) {
+        skipped++;
+        continue;
+      }
+      const token = crypto.randomBytes(24).toString("base64url");
+      await db.query(
+        `INSERT INTO invitations (dignitary_id, event_id, custom_message, rsvp_token)
+         VALUES ($1, $2, $3, $4)`,
+        [row.id, eventId, msg, token]
+      );
+      have.add(Number(row.id));
+      created++;
+    }
+    return res.json({
+      eventId,
+      created,
+      skipped,
+      totalEligible: eligible.length,
+      totalRows: have.size,
+    });
+  } catch (err) {
+    console.error("ensure-tracker-invitations failed:", err.message || err);
+    return res.status(500).json({ error: "Failed to prepare invitation tracker rows." });
+  }
+});
+
 // Invitations
-app.get("/api/invitations", async (_req, res) => {
+app.get("/api/invitations", async (req, res) => {
   try {
     const result = await db.query(`
       SELECT i.id, i.custom_message, i.status, i.sent_at, i.created_at,
@@ -1910,6 +2044,7 @@ app.get("/api/invitations", async (_req, res) => {
              d.id AS dignitary_id, d.full_name AS dignitary_name, d.email AS dignitary_email,
              d.designation AS dignitary_designation, d.organization AS dignitary_organization,
              d.karyakar_name, d.karyakar_name_secondary, d.karyakar_name_tertiary,
+             d.submitted_by_user_id,
              d.phone AS dignitary_phone, d.protocol_notes,
              e.id AS event_id, e.title AS event_title, e.event_date, e.event_time, e.venue
       FROM invitations i
@@ -1917,7 +2052,13 @@ app.get("/api/invitations", async (_req, res) => {
       JOIN events e ON e.id = i.event_id
       ORDER BY i.id DESC
     `);
-    return res.json(result.rows.map(withRsvpFields));
+    const auth = req.auth || {};
+    const role = String(auth.role || "").trim().toUpperCase();
+    const rows =
+      role === "ADMIN"
+        ? result.rows
+        : result.rows.filter((row) => invitationVisibleToAuth(row, auth));
+    return res.json(rows.map(withRsvpFields));
   } catch {
     return res.status(500).json({ error: "Failed to load invitations." });
   }
@@ -1930,7 +2071,8 @@ app.post("/api/invitations", async (req, res) => {
     const dignitary = await db.query(
       `SELECT id,
               COALESCE(NULLIF(UPPER(TRIM(approval_status)), ''), 'APPROVED') AS approval_status,
-              COALESCE(NULLIF(UPPER(TRIM(status)), ''), 'ACTIVE') AS status
+              COALESCE(NULLIF(UPPER(TRIM(status)), ''), 'ACTIVE') AS status,
+              karyakar_name, karyakar_name_secondary, karyakar_name_tertiary, submitted_by_user_id
        FROM dignitaries WHERE id = $1`,
       [dignitaryId]
     );
@@ -1941,6 +2083,17 @@ app.post("/api/invitations", async (req, res) => {
     }
     if (dignitary.rows[0].status === "INACTIVE") {
       return badRequest(res, "Dignitary is inactive. Enable them before inviting.");
+    }
+    if (!isTrackerEligibleDignitaryRow(dignitary.rows[0], req.auth || {})) {
+      return res.status(403).json({ error: "Not allowed to invite this dignitary." });
+    }
+
+    const existing = await db.query(
+      `SELECT * FROM invitations WHERE dignitary_id = $1 AND event_id = $2 LIMIT 1`,
+      [dignitaryId, eventId]
+    );
+    if (existing.rows[0]) {
+      return res.status(200).json(existing.rows[0]);
     }
 
     const token = crypto.randomBytes(24).toString("base64url");
@@ -2187,6 +2340,7 @@ async function logRsvpChannelCommunication(invitationId, status, requestedUserId
 app.patch("/api/invitations/:id/rsvp", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return badRequest(res, "Invalid invitation id.");
+  if (!(await requireInvitationAccess(req, res, id))) return;
   const channelRaw = String(req.body?.rsvpChannel || req.body?.channel || "")
     .trim()
     .toUpperCase()
@@ -2280,6 +2434,7 @@ app.patch("/api/invitations/:id/rsvp", async (req, res) => {
 app.patch("/api/invitations/:id/tracker", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return badRequest(res, "Invalid invitation id.");
+  if (!(await requireInvitationAccess(req, res, id))) return;
   const body = req.body && typeof req.body === "object" ? req.body : {};
   try {
     const cur = await db.query(
@@ -2388,6 +2543,7 @@ app.patch("/api/invitations/:id/approval", requireAdmin, async (req, res) => {
 app.patch("/api/invitations/:id/attendance", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return badRequest(res, "Invalid invitation id.");
+  if (!(await requireInvitationAccess(req, res, id))) return;
   const attended = req.body?.attended === true || req.body?.attended === "true" || req.body?.attended === 1;
   try {
     const cur = await db.query(

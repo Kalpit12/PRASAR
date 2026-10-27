@@ -986,9 +986,10 @@ body.karyakar-mode .sb-user .rl::after{content:' • Limited Access';color:#7ED8
 </div>
 </div>
 <div class="fb itr-filters">
-  <select id="itrEventFilter" onchange="renderInviteTracker()">
+  <select id="itrEventFilter" onchange="onTrackerEventFilterChange()">
     <option value="">All events</option>
   </select>
+  <button type="button" class="btn btn-o btn-sm" id="itrLoadAllBtn" style="display:none" onclick="ensureTrackerInvitesForSelectedEvent(true)">Load all dignitaries</button>
   <select id="itrDayFilterMobile" class="itr-m-day" onchange="onTrackerDayFilterChange(this.value)" title="Filter by day" aria-label="Filter by day">
     <option value="">All days</option>
   </select>
@@ -2140,6 +2141,7 @@ function toggleInviteRsvpChannel(id,status,checked){
 }
 const DAY_CH_KEY='prasar_invite_day_channels_v1';
 let trackerDayFilter='';
+let trackerEnsureBusy=false;
 const trackerExpandedEvents=new Set();
 function readDayChannelMap(){
   try{
@@ -5753,7 +5755,7 @@ function nav(p){
   }
   if(p==='events')renderEvents();
   if(p==='invitations'){requestAnimationFrame(()=>requestAnimationFrame(()=>repairPdfLayoutIfNeeded()));}
-  if(p==='invitation-tracker')renderInviteTracker();
+  if(p==='invitation-tracker')openInviteTrackerPage();
   if(p==='approvals')renderApprovals();
   if(p==='dignitaries')renderDig();
   if(p==='master-edits')renderMasterEdits();
@@ -6384,6 +6386,14 @@ async function bulkGenerateInvitations(){
     }catch(_e){}
   }
   toast(`Bulk done: ${done}/${targets.length} PDFs`,'ts');
+  const evt=EVTS[ei];
+  const dbId=Number(evt?.dbId||evt?.id||0);
+  if(dbId){
+    const prev=document.getElementById('itrEventFilter')?.value;
+    if(document.getElementById('itrEventFilter'))document.getElementById('itrEventFilter').value=String(dbId);
+    await ensureTrackerInvitesForSelectedEvent(false);
+    if(document.getElementById('itrEventFilter') && prev!=null)document.getElementById('itrEventFilter').value=prev;
+  }
 }
 
 // SCANNER
@@ -6509,13 +6519,27 @@ async function setInviteAttendance(id,attended,dayIdx){
 }
 function roleScopedInvites(){
   if(role==='admin')return INVITES;
-  const digIds=new Set(roleScopedDigs().map(d=>Number(d.dbId||d.id)));
+  const digIds=new Set(inviteableDigs().map(d=>Number(d.dbId||d.id)));
   const a=String(actorName||'').trim().toLowerCase();
   return INVITES.filter(i=>{
     if(digIds.has(Number(i.digId)))return true;
+    if(!a)return false;
     const kars=[i.karyakar,i.karyakar2,i.karyakar3].map(x=>String(x||'').trim().toLowerCase());
-    return a && kars.includes(a);
+    return kars.includes(a);
   });
+}
+function trackerEventFilterOptions(){
+  const map=new Map();
+  const add=e=>{
+    if(!e)return;
+    if(role!=='admin' && isEventDraft(e))return;
+    map.set(Number(e.dbId||e.id),e);
+  };
+  publishedEvents().forEach(add);
+  roleScopedInvites().forEach(inv=>{
+    add(EVTS.find(x=>Number(x.dbId||x.id)===Number(inv.eventId)));
+  });
+  return [...map.values()].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
 }
 function renderAttendanceGuestList(){
   const body=document.getElementById('guestAttBody');
@@ -6880,23 +6904,68 @@ function paintInviteTrackerSums(list,dayFilter){
     ${showAtt?`<td data-label="Attendance">${sums.attendance}</td>`:''}
   </tr>`;
 }
+function syncTrackerLoadAllBtn(){
+  const btn=document.getElementById('itrLoadAllBtn');
+  const eventId=Number(document.getElementById('itrEventFilter')?.value||0);
+  if(!btn)return;
+  btn.style.display=eventId?'':'none';
+  btn.textContent=role==='admin'?'Load all dignitaries':'Load my assigned guests';
+}
+async function ensureTrackerInvitesForSelectedEvent(manual){
+  const eventId=Number(document.getElementById('itrEventFilter')?.value||0);
+  if(!eventId)return null;
+  if(trackerEnsureBusy)return null;
+  trackerEnsureBusy=true;
+  try{
+    const r=await apiRequest(`/api/events/${eventId}/ensure-tracker-invitations`,{method:'POST',body:JSON.stringify({})});
+    if(r.created>0){
+      await syncBackendData();
+      const who=role==='admin'?'dignitaries':'assigned guests';
+      toast(`Added ${r.created} ${who} to tracker`,'ts');
+    }else if(manual){
+      const who=role==='admin'?'dignitaries':'assigned guests';
+      toast(r.totalEligible?`Tracker already lists all ${r.totalEligible} ${who} for this event`:'No active guests to add','ts');
+    }
+    return r;
+  }catch(e){
+    if(manual)toast(e.message||'Failed to load dignitaries for tracker');
+    return null;
+  }finally{
+    trackerEnsureBusy=false;
+  }
+}
+async function onTrackerEventFilterChange(){
+  syncTrackerLoadAllBtn();
+  await ensureTrackerInvitesForSelectedEvent(false);
+  renderInviteTracker();
+}
+async function openInviteTrackerPage(){
+  syncTrackerLoadAllBtn();
+  await ensureTrackerInvitesForSelectedEvent(false);
+  renderInviteTracker();
+}
 function renderInviteTracker(){
   const wrap=document.getElementById('inviteTrackerBody');
   if(!wrap)return;
   const filt=document.getElementById('itrEventFilter');
   if(filt){
     const prev=String(filt.value||'');
-    filt.innerHTML='<option value="">All events</option>'+publishedEvents().map(e=>`<option value="${e.dbId||e.id}">${escapeHtml(e.name||'Event')}</option>`).join('');
+    filt.innerHTML='<option value="">All events</option>'+trackerEventFilterOptions().map(e=>`<option value="${e.dbId||e.id}">${escapeHtml(e.name||'Event')}</option>`).join('');
     if(prev && [...filt.options].some(o=>o.value===prev))filt.value=prev;
   }
   syncInviteTrackerHead();
   const colSpan=trackerColSpan();
   const showAtt=trackerShowAttendanceCol();
   const hint=document.getElementById('itrHint');
+  syncTrackerLoadAllBtn();
   if(hint){
-    hint.innerHTML=showAtt
+    const base=showAtt
       ? 'Mark <strong>Reached Out Via</strong> once, then set RSVP <strong>Yes</strong> or <strong>No</strong> for each event day. Add ladies/gents (1–10) for each event day as needed. Use <strong>Attendance</strong> (last column) to mark the guest present for each event day.'
       : 'Mark <strong>Reached Out Via</strong> once, then set RSVP <strong>Yes</strong> or <strong>No</strong> for each event day. Add ladies/gents (1–10) for each event day as needed. Attendance opens when Admin enables it for the event.';
+    const scope=role==='admin'
+      ? '<strong>All events</strong> shows every tracker row from past and current programs. Pick an event to load all approved active dignitaries into the grid.'
+      : '<strong>All events</strong> shows your existing tracker rows from before. Pick an event to load only <strong>your assigned</strong> approved active guests.';
+    hint.innerHTML=`${base} ${scope}`;
   }
   const eventFilter=Number(filt?.value||0);
   const searchQ=inviteTrackerSearchQuery();
@@ -6908,14 +6977,20 @@ function renderInviteTracker(){
   if(!list.length){
     const empty=searchQ
       ?'No invitations match this search.'
-      :(eventFilter?'No invitations for this event.':'No invitations yet. Send one from Invitations.');
+      :(eventFilter
+        ?(role==='admin'
+          ?'No dignitaries for this event. Check that guests are approved and active, then use Load all dignitaries.'
+          :'No assigned guests for this event. Confirm you are listed on their dignitary record, then use Load my assigned guests.')
+        :(role==='admin'
+          ?'No tracker rows yet. Choose an event to load dignitaries, or send invitations from the Invitations page.'
+          :'No tracker rows yet for your guests. Choose an event to load your list, or send invitations from the Invitations page.'));
     wrap.innerHTML=`<tr><td colspan="${colSpan}" style="font-size:.85rem;color:var(--text-muted);padding:16px">${empty}</td></tr>`;
     paintInviteTrackerSums([],dayFilter);
     return;
   }
   const sorted=sortInvitesByOutreachGroup(list,dayFilter);
   let lastGroup=-1;
-  const rows=sorted.slice(0,80).map(inv=>{
+  const rows=sorted.map(inv=>{
     const dayList=inviteEventDays(inv);
     let dayViews=dayList.map((day,idx)=>({day,idx}));
     if(dayFilter!=null){

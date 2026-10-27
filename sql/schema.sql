@@ -194,6 +194,7 @@ CREATE INDEX IF NOT EXISTS idx_dignitaries_approved_by_user_id ON dignitaries (a
 CREATE INDEX IF NOT EXISTS idx_dignitaries_approval_status ON dignitaries (approval_status);
 CREATE INDEX IF NOT EXISTS idx_invitations_dignitary_id ON invitations (dignitary_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_event_id ON invitations (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_dignitary_event ON invitations (dignitary_id, event_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_rsvp_token ON invitations (rsvp_token)
   WHERE rsvp_token IS NOT NULL AND btrim(rsvp_token) <> '';
 CREATE INDEX IF NOT EXISTS idx_communications_dignitary_id ON communications (dignitary_id);
